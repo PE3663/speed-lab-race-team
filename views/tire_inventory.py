@@ -4,6 +4,7 @@ from utils.gsheet_db import read_sheet, append_row, delete_row, get_chassis_list
 
 SCANNER_HTML = """
 <style>
+  body { margin: 0; padding: 0; }
   #scanner-wrap { font-family: sans-serif; }
   #video { width: 100%; max-width: 400px; border-radius: 8px; display: none; }
   #scan-btn {
@@ -125,14 +126,12 @@ def render():
         if "scanned_tire_number" not in st.session_state:
             st.session_state["scanned_tire_number"] = ""
 
-        st.markdown("**Scan Tire Barcode** *(optional — opens camera to scan)*")
-        scanner_result = components.html(
+        components.html(
             SCANNER_HTML +
             """
             <script>
             window.addEventListener('message', function(e) {
               if (e.data && e.data.type === 'barcode_result') {
-                // Send to Streamlit via URL param trick
                 const url = new URL(window.parent.location.href);
                 url.searchParams.set('barcode', e.data.value);
                 window.parent.history.replaceState({}, '', url);
@@ -141,7 +140,7 @@ def render():
             });
             </script>
             """,
-            height=220,
+            height=60,
         )
 
         # Pick up barcode from query params if present
@@ -152,8 +151,6 @@ def render():
 
         if st.session_state["scanned_tire_number"]:
             st.success(f"🔍 Scanned: **{st.session_state['scanned_tire_number']}** — pre-filled below")
-
-        st.markdown("---")
 
         with st.form("add_tire", clear_on_submit=True):
             st.subheader("New Tire Entry")

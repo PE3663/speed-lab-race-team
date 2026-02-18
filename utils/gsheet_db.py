@@ -3,34 +3,50 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# ── Google Sheets Database Helper ────────────────────────────
+# -- Google Sheets Database Helper --
 # Uses gspread + Streamlit secrets for service account auth.
 # Your Google Sheet should be named: "SpeedLabRaceTeam"
 # Each module gets its own worksheet tab.
-# ──────────────────────────────────────────────────────
+# -----------------------------------
 
 SPREADSHEET_NAME = "SpeedLabRaceTeam"
 
-# Worksheet tab names
+# Worksheet tab names (must match actual Google Sheet tabs)
 SHEETS = {
-    "chassis": "Chassis",
-    "setups": "Setups",
-    "race_day": "RaceDayLog",
-    "tires": "TireInventory",
-    "parts": "PartsInventory",
-    "maintenance": "Maintenance",
+    "chassis": "chassis_profiles",
+    "setups": "setups",
+    "race_day": "race_day",
+    "tires": "tires",
+    "parts": "parts_inventory",
+    "maintenance": "maintenance",
+    "tuning": "tuning_log",
 }
+
+
+def _check_secrets():
+    """Check if gcp_service_account secrets are configured."""
+    try:
+        sa = st.secrets["gcp_service_account"]
+        if sa and sa.get("type") == "service_account":
+            return True
+    except Exception:
+        pass
+    return False
 
 
 @st.cache_resource(ttl=300)
 def _get_client():
     """Authenticate with Google using service account from Streamlit secrets."""
-    try:
-        creds = dict(st.secrets["gcp_service_account"])
-        gc = gspread.service_account_from_dict(creds)
-    except Exception:
-        # Local dev fallback — uses ~/.config/gspread/service_account.json
-        gc = gspread.service_account()
+    if not _check_secrets():
+        st.error(
+            "**Google Sheets credentials not configured.**\n\n"
+            "Go to your Streamlit Cloud dashboard > Settings > Secrets and add a "
+            "`[gcp_service_account]` section with your service account JSON key values.\n\n"
+            "See the `secrets.toml.example` file in the repo for the required format."
+        )
+        st.stop()
+    creds = dict(st.secrets["gcp_service_account"])
+    gc = gspread.service_account_from_dict(creds)
     return gc
 
 
@@ -65,7 +81,7 @@ def append_row(sheet_key: str, row_data: dict):
     ws = get_worksheet(sheet_key)
     existing = ws.get_all_values()
     if not existing:
-        # First row — write headers
+        # First row -- write headers
         headers = list(row_data.keys())
         ws.append_row(headers)
     row_values = list(row_data.values())
@@ -92,7 +108,9 @@ def get_chassis_list() -> list:
     df = read_sheet("chassis")
     if df.empty:
         return []
-    return df["chassis_name"].tolist()
+    if "chassis_name" in df.columns:
+        return df["chassis_name"].tolist()
+    return []
 
 
 def timestamp_now() -> str:

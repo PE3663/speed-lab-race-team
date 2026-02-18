@@ -4,14 +4,8 @@ import pandas as pd
 from datetime import datetime
 
 # -- Google Sheets Database Helper --
-# Uses gspread + Streamlit secrets for service account auth.
-# Your Google Sheet should be named: "SpeedLabRaceTeam"
-# Each module gets its own worksheet tab.
-# -----------------------------------
-
 SPREADSHEET_NAME = "SpeedLabRaceTeam"
 
-# Worksheet tab names (must match actual Google Sheet tabs)
 SHEETS = {
     "chassis": "chassis_profiles",
     "setups": "setups",
@@ -24,7 +18,6 @@ SHEETS = {
 
 
 def _has_credentials():
-    """Check if gcp_service_account secrets are configured."""
     try:
         sa = st.secrets["gcp_service_account"]
         if sa and sa.get("type") == "service_account":
@@ -35,34 +28,24 @@ def _has_credentials():
 
 
 def _require_credentials():
-    """Show error and stop if credentials are not configured."""
     if not _has_credentials():
-        st.error(
-            "**Google Sheets credentials not configured.**\n\n"
-            "Go to your Streamlit Cloud dashboard > Manage app > Settings > Secrets "
-            "and add a `[gcp_service_account]` section with your service account JSON key values.\n\n"
-            "See the `secrets.toml.example` file in the repo for the required format."
-        )
+        st.error("**Google Sheets credentials not configured.** "
+                 "Go to Manage app > Settings > Secrets and add `[gcp_service_account]`.")
         st.stop()
 
 
 @st.cache_resource(ttl=300)
 def _get_client():
-    """Authenticate with Google using service account from Streamlit secrets."""
     creds = dict(st.secrets["gcp_service_account"])
-    gc = gspread.service_account_from_dict(creds)
-    return gc
+    return gspread.service_account_from_dict(creds)
 
 
 def get_spreadsheet():
-    """Open the main SpeedLabRaceTeam spreadsheet."""
     _require_credentials()
-    gc = _get_client()
-    return gc.open(SPREADSHEET_NAME)
+    return _get_client().open(SPREADSHEET_NAME)
 
 
 def get_worksheet(sheet_key: str):
-    """Get or create a worksheet tab by key name."""
     ss = get_spreadsheet()
     tab_name = SHEETS.get(sheet_key, sheet_key)
     try:
@@ -73,12 +56,10 @@ def get_worksheet(sheet_key: str):
 
 
 def read_sheet(sheet_key: str) -> pd.DataFrame:
-    """Read all data from a worksheet as a DataFrame."""
     ws = get_worksheet(sheet_key)
     try:
         data = ws.get_all_records()
     except Exception:
-        # Sheet is empty or has no headers yet
         return pd.DataFrame()
     if data:
         return pd.DataFrame(data)
@@ -86,34 +67,36 @@ def read_sheet(sheet_key: str) -> pd.DataFrame:
 
 
 def append_row(sheet_key: str, row_data: dict):
-    """Append a single row to a worksheet. Auto-adds headers if empty."""
+    """Append a single row. Writes headers to row 1 if sheet is empty."""
     ws = get_worksheet(sheet_key)
+    headers = list(row_data.keys())
     existing = ws.get_all_values()
-    if not existing:
-        # First row -- write headers
-        headers = list(row_data.keys())
-        ws.append_row(headers)
-    row_values = list(row_data.values())
-    ws.append_row(row_values)
+    if not existing or all(cell == "" for cell in existing[0]):
+        # Sheet is empty -- write headers in row 1 then data in row 2
+        ws.update("A1", [headers])
+        row_values = [str(v) for v in row_data.values()]
+        ws.update("A2", [row_values])
+    else:
+        # Sheet has data -- match columns to existing headers
+        existing_headers = existing[0]
+        row_values = [str(row_data.get(h, "")) for h in existing_headers]
+        ws.append_row(row_values, value_input_option="USER_ENTERED")
 
 
 def update_row(sheet_key: str, row_index: int, row_data: dict):
-    """Update a specific row (1-indexed, row 1 = headers, row 2 = first data row)."""
     ws = get_worksheet(sheet_key)
     headers = ws.row_values(1)
-    row_values = [row_data.get(h, "") for h in headers]
+    row_values = [str(row_data.get(h, "")) for h in headers]
     cell_range = f"A{row_index}:{chr(64 + len(headers))}{row_index}"
     ws.update(cell_range, [row_values])
 
 
 def delete_row(sheet_key: str, row_index: int):
-    """Delete a specific row by index (1-indexed)."""
     ws = get_worksheet(sheet_key)
     ws.delete_rows(row_index)
 
 
 def get_chassis_list() -> list:
-    """Helper: return list of chassis names for dropdowns."""
     df = read_sheet("chassis")
     if df.empty:
         return []
@@ -123,5 +106,4 @@ def get_chassis_list() -> list:
 
 
 def timestamp_now() -> str:
-    """Return current timestamp string."""
     return datetime.now().strftime("%Y-%m-%d %H:%M")

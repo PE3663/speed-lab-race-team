@@ -1,6 +1,7 @@
 import streamlit as st
 from utils.gsheet_db import read_sheet, append_row, get_chassis_list, timestamp_now
 
+CORNERS = ["LF", "RF", "LR", "RR"]
 
 def render():
     st.header("📋 Race Day Log")
@@ -30,7 +31,61 @@ def render():
 
             st.markdown("---")
             st.subheader("Session Notes")
-            practice_notes = st.text_area("Practice")
+
+            # --- Practice #1 Tires ---
+            st.markdown("**Practice #1 — Tires**")
+            p1t_cols = st.columns(6)
+            with p1t_cols[0]:
+                p1_tire_lf = st.text_input("Tire Size LF", key="p1_tire_lf")
+            with p1t_cols[1]:
+                p1_tire_rf = st.text_input("Tire Size RF", key="p1_tire_rf")
+            with p1t_cols[2]:
+                p1_stagger_f = st.text_input("Stagger (F)", key="p1_stagger_f")
+            with p1t_cols[3]:
+                p1_tire_lr = st.text_input("Tire Size LR", key="p1_tire_lr")
+            with p1t_cols[4]:
+                p1_tire_rr = st.text_input("Tire Size RR", key="p1_tire_rr")
+            with p1t_cols[5]:
+                p1_stagger_r = st.text_input("Stagger (R)", key="p1_stagger_r")
+            p1p_cols = st.columns(4)
+            with p1p_cols[0]:
+                p1_pres_lf = st.text_input("Air Pres. LF", key="p1_pres_lf")
+            with p1p_cols[1]:
+                p1_pres_rf = st.text_input("Air Pres. RF", key="p1_pres_rf")
+            with p1p_cols[2]:
+                p1_pres_lr = st.text_input("Air Pres. LR", key="p1_pres_lr")
+            with p1p_cols[3]:
+                p1_pres_rr = st.text_input("Air Pres. RR", key="p1_pres_rr")
+
+            practice_notes = st.text_area("Practice Notes")
+
+            # --- Practice #2 Tires ---
+            st.markdown("**Practice #2 — Tires**")
+            p2t_cols = st.columns(6)
+            with p2t_cols[0]:
+                p2_tire_lf = st.text_input("Tire Size LF", key="p2_tire_lf")
+            with p2t_cols[1]:
+                p2_tire_rf = st.text_input("Tire Size RF", key="p2_tire_rf")
+            with p2t_cols[2]:
+                p2_stagger_f = st.text_input("Stagger (F)", key="p2_stagger_f")
+            with p2t_cols[3]:
+                p2_tire_lr = st.text_input("Tire Size LR", key="p2_tire_lr")
+            with p2t_cols[4]:
+                p2_tire_rr = st.text_input("Tire Size RR", key="p2_tire_rr")
+            with p2t_cols[5]:
+                p2_stagger_r = st.text_input("Stagger (R)", key="p2_stagger_r")
+            p2p_cols = st.columns(4)
+            with p2p_cols[0]:
+                p2_pres_lf = st.text_input("Air Pres. LF", key="p2_pres_lf")
+            with p2p_cols[1]:
+                p2_pres_rf = st.text_input("Air Pres. RF", key="p2_pres_rf")
+            with p2p_cols[2]:
+                p2_pres_lr = st.text_input("Air Pres. LR", key="p2_pres_lr")
+            with p2p_cols[3]:
+                p2_pres_rr = st.text_input("Air Pres. RR", key="p2_pres_rr")
+
+            practice2_notes = st.text_area("Practice #2 Notes")
+
             qualifying_notes = st.text_area("Qualifying")
             heat_notes = st.text_area("Heat Race")
             feature_notes = st.text_area("Feature")
@@ -51,11 +106,26 @@ def render():
                 append_row("race_day", {
                     "date": str(race_date), "track": track, "chassis": chassis,
                     "weather": weather, "track_condition": track_condition, "air_temp": air_temp,
-                    "practice": practice_notes, "qualifying": qualifying_notes,
+                    "p1_tire_lf": p1_tire_lf, "p1_tire_rf": p1_tire_rf,
+                    "p1_stagger_f": p1_stagger_f,
+                    "p1_tire_lr": p1_tire_lr, "p1_tire_rr": p1_tire_rr,
+                    "p1_stagger_r": p1_stagger_r,
+                    "p1_pres_lf": p1_pres_lf, "p1_pres_rf": p1_pres_rf,
+                    "p1_pres_lr": p1_pres_lr, "p1_pres_rr": p1_pres_rr,
+                    "practice": practice_notes,
+                    "p2_tire_lf": p2_tire_lf, "p2_tire_rf": p2_tire_rf,
+                    "p2_stagger_f": p2_stagger_f,
+                    "p2_tire_lr": p2_tire_lr, "p2_tire_rr": p2_tire_rr,
+                    "p2_stagger_r": p2_stagger_r,
+                    "p2_pres_lf": p2_pres_lf, "p2_pres_rf": p2_pres_rf,
+                    "p2_pres_lr": p2_pres_lr, "p2_pres_rr": p2_pres_rr,
+                    "practice2": practice2_notes,
+                    "qualifying": qualifying_notes,
                     "heat_race": heat_notes, "feature": feature_notes,
                     "qual_position": qual_pos, "heat_finish": heat_finish,
-                    "feature_finish": feature_finish, "adjustments": adjustments,
-                    "notes": notes, "created": timestamp_now(),
+                    "feature_finish": feature_finish,
+                    "adjustments": adjustments, "notes": notes,
+                    "created": timestamp_now(),
                 })
                 st.success("Race day log saved!")
                 st.rerun()

@@ -100,9 +100,18 @@ def render():
             st.markdown("---")
 
             qualifying_notes = st.text_area("Qualifying")
-            heat_notes = st.text_area("Heat Race")
-            feature_notes = st.text_area("Feature")
 
+            # Heat Race tires
+            st.markdown("---")
+            heat = tire_block("heat", "Heat Race — Tires & Springs")
+            heat_notes = st.text_area("Heat Race Notes", key="heat_notes")
+
+            # Feature tires
+            st.markdown("---")
+            feat = tire_block("feat", "Feature — Tires & Springs")
+            feature_notes = st.text_area("Feature Notes", key="feature_notes")
+
+            st.markdown("---")
             st.subheader("Results")
             rc1, rc2, rc3 = st.columns(3)
             with rc1:
@@ -130,6 +139,8 @@ def render():
                 }
                 row.update(p1)
                 row.update(p2)
+                row.update(heat)
+                row.update(feat)
                 append_row("race_day", row)
                 st.success("Race day log saved!")
                 st.rerun()

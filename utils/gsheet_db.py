@@ -75,7 +75,11 @@ def get_worksheet(sheet_key: str):
 def read_sheet(sheet_key: str) -> pd.DataFrame:
     """Read all data from a worksheet as a DataFrame."""
     ws = get_worksheet(sheet_key)
-    data = ws.get_all_records()
+    try:
+        data = ws.get_all_records()
+    except Exception:
+        # Sheet is empty or has no headers yet
+        return pd.DataFrame()
     if data:
         return pd.DataFrame(data)
     return pd.DataFrame()

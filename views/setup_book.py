@@ -3,9 +3,8 @@ from utils.gsheet_db import read_sheet, append_row, get_chassis_list, timestamp_
 
 CORNERS = ["LF", "RF", "LR", "RR"]
 
-
 def render():
-    st.header("🔧 Setup Book")
+    st.header("\U0001f527 Setup Book")
     chassis_list = get_chassis_list()
     if not chassis_list:
         st.warning("Add a chassis profile first.")
@@ -28,8 +27,8 @@ def render():
             st.subheader("New Setup Entry")
             chassis = st.selectbox("Chassis", chassis_list)
             setup_name = st.text_input("Setup Name (e.g. Flamboro Baseline)")
-
             st.markdown("---")
+
             st.subheader("Springs")
             spr = {}
             cols = st.columns(4)
@@ -74,6 +73,13 @@ def render():
             for i, c in enumerate(CORNERS):
                 with cols6[i]:
                     wt[f"weight_{c}"] = st.text_input(f"Weight {c} (lbs)")
+            wt_cols = st.columns(3)
+            with wt_cols[0]:
+                wt["weight_left"] = st.text_input("Left (lbs)")
+            with wt_cols[1]:
+                wt["weight_rear"] = st.text_input("Rear (lbs)")
+            with wt_cols[2]:
+                wt["weight_cross"] = st.text_input("Cross (lbs)")
 
             st.subheader("Chassis / Drivetrain")
             cc1, cc2, cc3 = st.columns(3)
@@ -83,7 +89,6 @@ def render():
                 sway_bar = st.text_input("Sway Bar")
             with cc3:
                 track_bar = st.text_input("Track Bar Height")
-
             tc1, tc2 = st.columns(2)
             with tc1:
                 panhard = st.text_input("Panhard Bar")
@@ -91,7 +96,6 @@ def render():
             with tc2:
                 tire_pressure = st.text_input("Tire Pressures (LF/RF/LR/RR)")
                 stagger = st.text_input("Stagger")
-
             notes = st.text_area("Setup Notes")
 
             if st.form_submit_button("Save Setup", type="primary"):

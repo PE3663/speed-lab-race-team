@@ -10,34 +10,42 @@ def tire_block(prefix, label):
     with f1:
         st.markdown("**🔵 LF**")
         lf_size = st.text_input("Tire Size", key=f"{prefix}_tire_lf")
-        lf_pres = st.text_input("Air Pressure", key=f"{prefix}_pres_lf")
-        lf_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_lf")
-        lf_bump = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_lf")
     with f2:
         st.markdown("**🔴 RF**")
         rf_size = st.text_input("Tire Size", key=f"{prefix}_tire_rf")
+
+    stagger_f = st.text_input("Stagger Front (RF - LF)", key=f"{prefix}_stagger_f")
+
+    sf1, sf2 = st.columns(2)
+    with sf1:
+        lf_pres = st.text_input("Air Pressure", key=f"{prefix}_pres_lf")
+        lf_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_lf")
+        lf_bump = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_lf")
+    with sf2:
         rf_pres = st.text_input("Air Pressure", key=f"{prefix}_pres_rf")
         rf_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_rf")
         rf_bump = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_rf")
-
-    stagger_f = st.text_input("Stagger Front (RF - LF)", key=f"{prefix}_stagger_f")
 
     # --- Rear row: LR | RR ---
     r1, r2 = st.columns(2)
     with r1:
         st.markdown("**🔵 LR**")
         lr_size = st.text_input("Tire Size", key=f"{prefix}_tire_lr")
-        lr_pres = st.text_input("Air Pressure", key=f"{prefix}_pres_lr")
-        lr_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_lr")
-        lr_bump = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_lr")
     with r2:
         st.markdown("**🔴 RR**")
         rr_size = st.text_input("Tire Size", key=f"{prefix}_tire_rr")
+
+    stagger_r = st.text_input("Stagger Rear (RR - LR)", key=f"{prefix}_stagger_r")
+
+    sr1, sr2 = st.columns(2)
+    with sr1:
+        lr_pres = st.text_input("Air Pressure", key=f"{prefix}_pres_lr")
+        lr_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_lr")
+        lr_bump = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_lr")
+    with sr2:
         rr_pres = st.text_input("Air Pressure", key=f"{prefix}_pres_rr")
         rr_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_rr")
         rr_bump = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_rr")
-
-    stagger_r = st.text_input("Stagger Rear (RR - LR)", key=f"{prefix}_stagger_r")
 
     return {
         f"{prefix}_tire_lf": lf_size, f"{prefix}_pres_lf": lf_pres,

@@ -23,7 +23,7 @@ SHEETS = {
 }
 
 
-def _check_secrets():
+def _has_credentials():
     """Check if gcp_service_account secrets are configured."""
     try:
         sa = st.secrets["gcp_service_account"]
@@ -34,17 +34,21 @@ def _check_secrets():
     return False
 
 
-@st.cache_resource(ttl=300)
-def _get_client():
-    """Authenticate with Google using service account from Streamlit secrets."""
-    if not _check_secrets():
+def _require_credentials():
+    """Show error and stop if credentials are not configured."""
+    if not _has_credentials():
         st.error(
             "**Google Sheets credentials not configured.**\n\n"
-            "Go to your Streamlit Cloud dashboard > Settings > Secrets and add a "
-            "`[gcp_service_account]` section with your service account JSON key values.\n\n"
+            "Go to your Streamlit Cloud dashboard > Manage app > Settings > Secrets "
+            "and add a `[gcp_service_account]` section with your service account JSON key values.\n\n"
             "See the `secrets.toml.example` file in the repo for the required format."
         )
         st.stop()
+
+
+@st.cache_resource(ttl=300)
+def _get_client():
+    """Authenticate with Google using service account from Streamlit secrets."""
     creds = dict(st.secrets["gcp_service_account"])
     gc = gspread.service_account_from_dict(creds)
     return gc
@@ -52,6 +56,7 @@ def _get_client():
 
 def get_spreadsheet():
     """Open the main SpeedLabRaceTeam spreadsheet."""
+    _require_credentials()
     gc = _get_client()
     return gc.open(SPREADSHEET_NAME)
 

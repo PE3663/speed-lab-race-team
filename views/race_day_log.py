@@ -2,63 +2,80 @@ import streamlit as st
 from utils.gsheet_db import read_sheet, append_row, get_chassis_list, timestamp_now
 
 def tire_block(prefix, label):
-    """Render a 2-col corner layout: [LF, RF] stagger, [LR, RR] stagger. Mobile friendly."""
+    """Render tire size, stagger, air pressure, spring/bump in a clean layout."""
     st.markdown(f"**{label}**")
 
-    # --- Front row: LF | RF ---
-    f1, f2 = st.columns(2)
-    with f1:
+    # --- All 4 Tire Sizes in one row ---
+    sz1, sz2, sz3, sz4 = st.columns(4)
+    with sz1:
         st.markdown("**🔵 LF**")
         lf_size = st.text_input("Tire Size", key=f"{prefix}_tire_lf")
-    with f2:
+    with sz2:
         st.markdown("**🔴 RF**")
         rf_size = st.text_input("Tire Size", key=f"{prefix}_tire_rf")
-
-    stagger_f = st.text_input("Stagger Front (RF - LF)", key=f"{prefix}_stagger_f")
-
-    sf1, sf2 = st.columns(2)
-    with sf1:
-        lf_pres = st.text_input("Air Pressure", key=f"{prefix}_pres_lf")
-        lf_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_lf")
-        lf_bump = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_lf")
-    with sf2:
-        rf_pres = st.text_input("Air Pressure", key=f"{prefix}_pres_rf")
-        rf_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_rf")
-        rf_bump = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_rf")
-
-    # --- Rear row: LR | RR ---
-    r1, r2 = st.columns(2)
-    with r1:
+    with sz3:
         st.markdown("**🔵 LR**")
         lr_size = st.text_input("Tire Size", key=f"{prefix}_tire_lr")
-    with r2:
+    with sz4:
         st.markdown("**🔴 RR**")
         rr_size = st.text_input("Tire Size", key=f"{prefix}_tire_rr")
 
-    stagger_r = st.text_input("Stagger Rear (RR - LR)", key=f"{prefix}_stagger_r")
+    # --- Stagger row ---
+    stg1, stg2 = st.columns(2)
+    with stg1:
+        stagger_f = st.text_input("Stagger Front (RF − LF)", key=f"{prefix}_stagger_f")
+    with stg2:
+        stagger_r = st.text_input("Stagger Rear (RR − LR)", key=f"{prefix}_stagger_r")
 
+    # --- Front corner details: Air Pressure / Spring / Bump ---
+    st.markdown("**Front Corners**")
+    sf1, sf2 = st.columns(2)
+    with sf1:
+        st.markdown("*🔵 LF*")
+        lf_pres   = st.text_input("Air Pressure",      key=f"{prefix}_pres_lf")
+        lf_spring = st.text_input("Spring Rate (lbs)",  key=f"{prefix}_spring_lf")
+        lf_bump   = st.text_input("Bump Spring (lbs)",  key=f"{prefix}_bump_lf")
+    with sf2:
+        st.markdown("*🔴 RF*")
+        rf_pres   = st.text_input("Air Pressure",      key=f"{prefix}_pres_rf")
+        rf_spring = st.text_input("Spring Rate (lbs)",  key=f"{prefix}_spring_rf")
+        rf_bump   = st.text_input("Bump Spring (lbs)",  key=f"{prefix}_bump_rf")
+
+    # --- Rear corner details: Air Pressure / Spring / Bump ---
+    st.markdown("**Rear Corners**")
     sr1, sr2 = st.columns(2)
     with sr1:
-        lr_pres = st.text_input("Air Pressure", key=f"{prefix}_pres_lr")
-        lr_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_lr")
-        lr_bump = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_lr")
+        st.markdown("*🔵 LR*")
+        lr_pres   = st.text_input("Air Pressure",      key=f"{prefix}_pres_lr")
+        lr_spring = st.text_input("Spring Rate (lbs)",  key=f"{prefix}_spring_lr")
+        lr_bump   = st.text_input("Bump Spring (lbs)",  key=f"{prefix}_bump_lr")
     with sr2:
-        rr_pres = st.text_input("Air Pressure", key=f"{prefix}_pres_rr")
-        rr_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_rr")
-        rr_bump = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_rr")
+        st.markdown("*🔴 RR*")
+        rr_pres   = st.text_input("Air Pressure",      key=f"{prefix}_pres_rr")
+        rr_spring = st.text_input("Spring Rate (lbs)",  key=f"{prefix}_spring_rr")
+        rr_bump   = st.text_input("Bump Spring (lbs)",  key=f"{prefix}_bump_rr")
 
     return {
-        f"{prefix}_tire_lf": lf_size, f"{prefix}_pres_lf": lf_pres,
-        f"{prefix}_spring_lf": lf_spring, f"{prefix}_bump_lf": lf_bump,
-        f"{prefix}_tire_rf": rf_size, f"{prefix}_pres_rf": rf_pres,
-        f"{prefix}_spring_rf": rf_spring, f"{prefix}_bump_rf": rf_bump,
+        f"{prefix}_tire_lf":   lf_size,
+        f"{prefix}_pres_lf":   lf_pres,
+        f"{prefix}_spring_lf": lf_spring,
+        f"{prefix}_bump_lf":   lf_bump,
+        f"{prefix}_tire_rf":   rf_size,
+        f"{prefix}_pres_rf":   rf_pres,
+        f"{prefix}_spring_rf": rf_spring,
+        f"{prefix}_bump_rf":   rf_bump,
         f"{prefix}_stagger_f": stagger_f,
-        f"{prefix}_tire_lr": lr_size, f"{prefix}_pres_lr": lr_pres,
-        f"{prefix}_spring_lr": lr_spring, f"{prefix}_bump_lr": lr_bump,
-        f"{prefix}_tire_rr": rr_size, f"{prefix}_pres_rr": rr_pres,
-        f"{prefix}_spring_rr": rr_spring, f"{prefix}_bump_rr": rr_bump,
+        f"{prefix}_tire_lr":   lr_size,
+        f"{prefix}_pres_lr":   lr_pres,
+        f"{prefix}_spring_lr": lr_spring,
+        f"{prefix}_bump_lr":   lr_bump,
+        f"{prefix}_tire_rr":   rr_size,
+        f"{prefix}_pres_rr":   rr_pres,
+        f"{prefix}_spring_rr": rr_spring,
+        f"{prefix}_bump_rr":   rr_bump,
         f"{prefix}_stagger_r": stagger_r,
     }
+
 
 def render():
     st.header("📋 Race Day Log")
@@ -89,24 +106,24 @@ def render():
             st.markdown("---")
             st.subheader("Session Notes")
 
-            # Practice #1 tires
+            # Practice #1
             p1 = tire_block("p1", "Practice #1 — Tires & Springs")
             practice_notes = st.text_area("Practice Notes", key="practice_notes")
             st.markdown("---")
 
-            # Practice #2 tires
+            # Practice #2
             p2 = tire_block("p2", "Practice #2 — Tires & Springs")
             practice2_notes = st.text_area("Practice #2 Notes", key="practice2_notes")
             st.markdown("---")
 
             qualifying_notes = st.text_area("Qualifying")
 
-            # Heat Race tires
+            # Heat Race
             st.markdown("---")
             heat = tire_block("heat", "Heat Race — Tires & Springs")
             heat_notes = st.text_area("Heat Race Notes", key="heat_notes")
 
-            # Feature tires
+            # Feature
             st.markdown("---")
             feat = tire_block("feat", "Feature — Tires & Springs")
             feature_notes = st.text_area("Feature Notes", key="feature_notes")
@@ -126,15 +143,22 @@ def render():
 
             if st.form_submit_button("Save Race Day Log", type="primary"):
                 row = {
-                    "date": str(race_date), "track": track, "chassis": chassis,
-                    "weather": weather, "track_condition": track_condition, "air_temp": air_temp,
+                    "date": str(race_date),
+                    "track": track,
+                    "chassis": chassis,
+                    "weather": weather,
+                    "track_condition": track_condition,
+                    "air_temp": air_temp,
                     "practice": practice_notes,
                     "practice2": practice2_notes,
                     "qualifying": qualifying_notes,
-                    "heat_race": heat_notes, "feature": feature_notes,
-                    "qual_position": qual_pos, "heat_finish": heat_finish,
+                    "heat_race": heat_notes,
+                    "feature": feature_notes,
+                    "qual_position": qual_pos,
+                    "heat_finish": heat_finish,
                     "feature_finish": feature_finish,
-                    "adjustments": adjustments, "notes": notes,
+                    "adjustments": adjustments,
+                    "notes": notes,
                     "created": timestamp_now(),
                 }
                 row.update(p1)

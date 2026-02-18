@@ -53,7 +53,7 @@ if not check_password():
 
 # -- Sidebar Navigation --
 with st.sidebar:
-    st.image("https://img.icons8.com/color/96/checkered-flag.png", width=60)
+        st.markdown("# 🏁")
     st.markdown("## Speed Lab Race Team")
     st.caption(f"Logged in as **{st.session_state.get('current_user', '')}**")
     st.divider()

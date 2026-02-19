@@ -77,6 +77,9 @@ def _render_weekly_checklist():
 
     st.markdown("---")
 
+    # Date selection for this checklist
+    checklist_date = st.date_input("Checklist Date", value=date.today(), key="wc_date")
+
     # Build flat list of all items for tracking
     all_items = []
     for category, items in WEEKLY_CHECKLIST.items():
@@ -110,7 +113,7 @@ def _render_weekly_checklist():
             else:
                 record = {
                     "timestamp": timestamp_now(),
-                    "week_of": str(date.today()),
+                    "week_of": str(checklist_date),
                     "items_checked": done_count,
                     "items_total": total_items,
                     "pct_complete": f"{progress * 100:.0f}%",

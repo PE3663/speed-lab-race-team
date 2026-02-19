@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from openai import OpenAI
 from utils.gsheet_db import read_sheet, append_row, timestamp_now
+from utils.tuning_knowledge import get_tuning_knowledge
 
 
 def _get_ai_client():
@@ -57,15 +58,21 @@ def _build_setup_summary(setup_df):
     return "\n".join(lines)
 
 
-def _get_ai_suggestion(client, setup_summary, symptom):
-    """Ask Perplexity Sonar for tuning advice based on setup and symptom."""
+def _get_ai_suggestion(client, setup_summary, symptom, tuning_log_context=""):
+    """Ask Perplexity Sonar for tuning advice based on setup, symptom, and knowledge base."""
+    knowledge = get_tuning_knowledge()
     system_msg = (
         "You are an expert oval-track racing engineer specializing in Pro Late Model "
-        "stock cars. The driver will describe a handling problem and provide their current "
-        "chassis setup (if available). Respond with concise, actionable adjustment recommendations. "
+        "stock cars. Use the following tuning reference knowledge to inform your advice:\n\n"
+        f"{knowledge}\n\n"
+        "The driver will describe a handling problem and provide their current "
+        "chassis setup (if available) and past tuning log entries (if available). "
+        "Respond with concise, actionable adjustment recommendations. "
         "For each recommendation, explain WHAT to change, HOW MUCH to change it, "
         "and WHY it helps. Keep the response under 300 words. "
-        "Focus on the most impactful 3-4 changes."
+        "Focus on the most impactful 3-4 changes. "
+        "If setup data is provided, reference their specific values and suggest "
+        "concrete new targets."
     )
     if setup_summary == "No setup data available.":
         user_msg = (
@@ -78,8 +85,10 @@ def _get_ai_suggestion(client, setup_summary, symptom):
         user_msg = (
             f"Current Setup:\n{setup_summary}\n\n"
             f"Problem: {symptom}\n\n"
-            "What specific setup changes do you recommend?"
         )
+        if tuning_log_context:
+            user_msg += f"Recent Tuning History:\n{tuning_log_context}\n\n"
+        user_msg += "What specific setup changes do you recommend?"
     try:
         resp = client.chat.completions.create(
             model="sonar",
@@ -93,6 +102,20 @@ def _get_ai_suggestion(client, setup_summary, symptom):
         return resp.choices[0].message.content
     except Exception as e:
         return f"AI error: {e}"
+
+
+def _build_tuning_log_context(log_df, limit=5):
+    """Build a summary of recent tuning log entries for AI context."""
+    if log_df.empty:
+        return ""
+    recent = log_df.tail(limit).iloc[::-1]
+    lines = []
+    for _, row in recent.iterrows():
+        entry = f"- {row.get('date', '?')} | {row.get('session', '?')} | {row.get('condition', '?')}"
+        entry += f" | Issue: {row.get('symptom', '?')} | Change: {row.get('change', '?')}"
+        entry += f" | Result: {row.get('result', '?')}"
+        lines.append(entry)
+    return "\n".join(lines)
 
 
 # --------------- Hardcoded knowledge base (fallback) ---------------
@@ -145,6 +168,13 @@ def render():
         setup_df = pd.DataFrame()
     setup_summary = _build_setup_summary(setup_df)
 
+    # ---- load tuning log for AI context ----
+    try:
+        log_df = read_sheet("TuningLog")
+    except Exception:
+        log_df = pd.DataFrame()
+    tuning_log_context = _build_tuning_log_context(log_df)
+
     # ---- What's the car doing? ----
     st.subheader("What's the car doing?")
     symptom = st.selectbox(
@@ -158,7 +188,9 @@ def render():
         # AI-powered recommendation (works with or without setup data)
         if ai_client:
             with st.spinner("Analyzing with AI..."):
-                ai_advice = _get_ai_suggestion(ai_client, setup_summary, symptom)
+                ai_advice = _get_ai_suggestion(
+                    ai_client, setup_summary, symptom, tuning_log_context
+                )
             st.subheader("AI Recommendation")
             if setup_summary != "No setup data available.":
                 st.info("Based on your actual setup data and the selected handling issue:")
@@ -206,7 +238,6 @@ def render():
 
     # Show recent log entries
     try:
-        log_df = read_sheet("TuningLog")
         if not log_df.empty:
             st.dataframe(log_df.tail(10).iloc[::-1], use_container_width=True)
     except Exception:

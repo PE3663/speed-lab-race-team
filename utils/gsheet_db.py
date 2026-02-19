@@ -16,6 +16,7 @@ SHEETS = {
     "maintenance": "maintenance",
     "tuning": "tuning_log",
     "tire_reg": "tire_registrations",
+        "weekly_checklist": "weekly_checklist",
 }
 
 

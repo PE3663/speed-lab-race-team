@@ -1,10 +1,113 @@
 import streamlit as st
 import pandas as pd
+from openai import OpenAI
 from utils.gsheet_db import read_sheet, append_row, timestamp_now
 
 
+def _get_ai_client():
+    """Return OpenAI client if API key is configured, else None."""
+    try:
+        key = st.secrets["openai"]["api_key"]
+        if key and key != "YOUR_OPENAI_API_KEY_HERE":
+            return OpenAI(api_key=key)
+    except Exception:
+        pass
+    return None
+
+
+def _build_setup_summary(setup_df):
+    """Build a readable summary of the most recent setup for AI context."""
+    if setup_df.empty:
+        return "No setup data available."
+    row = setup_df.iloc[-1]
+    lines = [f"Setup: {row.get('setup_name', 'Unknown')} | Chassis: {row.get('chassis', 'Unknown')}"]
+    # Springs
+    springs = [f"{c}: {row.get(f'spring_{c}', '?')} lbs" for c in ["LF", "RF", "LR", "RR"]]
+    lines.append(f"Springs - {', '.join(springs)}")
+    # Bump springs
+    bumps = [f"{c}: {row.get(f'bump_spring_{c}', '?')} lbs" for c in ["LF", "RF", "LR", "RR"]]
+    lines.append(f"Bump Springs - {', '.join(bumps)}")
+    # Shocks
+    for label, prefix in [("Shock Compression", "shock_comp"), ("Shock Rebound", "shock_reb")]:
+        vals = [f"{c}: {row.get(f'{prefix}_{c}', '?')}" for c in ["LF", "RF", "LR", "RR"]]
+        lines.append(f"{label} - {', '.join(vals)}")
+    # Ride heights
+    rh = [f"{c}: {row.get(f'ride_height_{c}', '?')}" for c in ["LF", "RF", "LR", "RR"]]
+    lines.append(f"Ride Heights - {', '.join(rh)}")
+    # Alignment
+    for c in ["LF", "RF", "LR", "RR"]:
+        cam = row.get(f"camber_{c}", "?")
+        cas = row.get(f"caster_{c}", "?")
+        if cas and cas != "?":
+            lines.append(f"{c} Camber: {cam}, Caster: {cas}")
+        else:
+            lines.append(f"{c} Camber: {cam}")
+    lines.append(f"Toe: {row.get('toe', '?')}")
+    # Weights
+    wts = [f"{c}: {row.get(f'weight_{c}', '?')} lbs" for c in ["LF", "RF", "LR", "RR"]]
+    lines.append(f"Corner Weights - {', '.join(wts)}")
+    lines.append(f"Left%: {row.get('weight_left', '?')}, Rear%: {row.get('weight_rear', '?')}, Cross: {row.get('weight_cross', '?')}")
+    # Chassis
+    lines.append(f"Gear Ratio: {row.get('gear_ratio', '?')}, Sway Bar: {row.get('sway_bar', '?')}")
+    lines.append(f"Track Bar: {row.get('track_bar', '?')}, Panhard: {row.get('panhard', '?')}")
+    lines.append(f"Trailing Arm: {row.get('trailing_arm', '?')}, Stagger: {row.get('stagger', '?')}")
+    lines.append(f"Tire Pressures: {row.get('tire_pressures', '?')}")
+    if row.get("notes"):
+        lines.append(f"Notes: {row.get('notes')}")
+    return "\n".join(lines)
+
+
+def _build_history_summary(tuning_df, condition):
+    """Build summary of past tuning adjustments for this condition."""
+    if tuning_df.empty or "condition" not in tuning_df.columns:
+        return "No past tuning history."
+    relevant = tuning_df[tuning_df["condition"] == condition]
+    if relevant.empty:
+        return "No past adjustments logged for this condition."
+    lines = []
+    for _, r in relevant.tail(5).iterrows():
+        result = r.get("result", "Unknown")
+        adj = r.get("adjustment", "")
+        date = r.get("date", "")
+        lines.append(f"- [{result}] {adj} ({date})")
+    return "\n".join(lines)
+
+
+def _ask_ai(client, condition, description, setup_summary, history_summary):
+    """Ask OpenAI for setup-specific tuning suggestions."""
+    prompt = f"""You are an expert Pro Late Model oval race car chassis tuner and setup engineer.
+
+The driver reports: {condition}
+Description: {description}
+
+Current Car Setup:
+{setup_summary}
+
+Past Tuning History for this condition:
+{history_summary}
+
+Based on the SPECIFIC setup numbers above, provide 4-6 targeted adjustment recommendations.
+For each recommendation:
+- Reference the actual current values from the setup
+- Suggest specific new values or ranges
+- Explain briefly why this change helps
+
+Keep responses practical and concise. Format as a numbered list.
+End with one sentence about what to check first."""
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=800,
+            temperature=0.7,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"AI error: {e}"
+
+
 def render():
-    st.header("🎯 Trackside Tuning Guide")
+    st.header("\U0001f3af Trackside Tuning Guide")
     st.markdown("Quick reference for common handling issues and recommended adjustments.")
 
     tab1, tab2, tab3 = st.tabs(["Quick Fixes", "Tuning Log", "Reference"])
@@ -93,6 +196,34 @@ def render():
             st.markdown("---")
             st.info(f"**Advanced Note:** {fix['advanced']}")
 
+            # --- AI-Powered Suggestions ---
+            st.markdown("---")
+            ai_client = _get_ai_client()
+            if ai_client:
+                st.subheader("\U0001f916 AI Setup-Specific Suggestions")
+                setup_df = read_sheet("setups")
+                if setup_df.empty:
+                    st.warning("No setups in Setup Book yet. Add a setup first so AI can analyze your specific numbers.")
+                else:
+                    setup_names = setup_df["setup_name"].tolist() if "setup_name" in setup_df.columns else []
+                    sel_setup = st.selectbox("Analyze which setup?", setup_names, key="ai_setup_sel")
+                    if sel_setup:
+                        sel_row_df = setup_df[setup_df["setup_name"] == sel_setup]
+                    else:
+                        sel_row_df = setup_df.tail(1)
+                    if st.button("\U0001f9e0 Get AI Suggestions", type="primary", key="ai_suggest_btn"):
+                        with st.spinner("Analyzing your setup..."):
+                            setup_summary = _build_setup_summary(sel_row_df)
+                            tuning_df = read_sheet("tuning")
+                            history_summary = _build_history_summary(tuning_df, condition)
+                            ai_result = _ask_ai(ai_client, condition, fix["description"], setup_summary, history_summary)
+                        st.markdown(ai_result)
+                        st.caption("\u26A0\uFE0F AI suggestions are a starting point, not gospel. Always verify with your crew chief's judgment.")
+            else:
+                with st.expander("\U0001f916 AI Setup-Specific Suggestions"):
+                    st.info("To get AI-powered recommendations based on your actual setup, add your OpenAI API key in Streamlit secrets under [openai] > api_key.")
+                    st.markdown("Get an API key at [platform.openai.com](https://platform.openai.com/api-keys)")
+
             # Log the change
             st.markdown("---")
             st.subheader("Log This Adjustment")
@@ -102,8 +233,10 @@ def render():
                 if st.form_submit_button("Save to Tuning Log"):
                     if adj_desc:
                         append_row("tuning", {
-                            "date": timestamp_now(), "condition": condition,
-                            "adjustment": adj_desc, "result": adj_result,
+                            "date": timestamp_now(),
+                            "condition": condition,
+                            "adjustment": adj_desc,
+                            "result": adj_result,
                             "created": timestamp_now()
                         })
                         st.success("Adjustment logged!")
@@ -122,7 +255,6 @@ def render():
                 display = display[display["result"] == result_filter]
             display_cols = [c for c in ["date", "condition", "adjustment", "result"] if c in display.columns]
             st.dataframe(display[display_cols] if display_cols else display, use_container_width=True, hide_index=True)
-
             # Stats
             if "result" in log_df.columns:
                 st.markdown("---")
@@ -140,7 +272,6 @@ def render():
     # --- Reference ---
     with tab3:
         st.subheader("Quick Reference Charts")
-
         st.markdown("### Weight & Balance Targets")
         ref1, ref2 = st.columns(2)
         with ref1:
@@ -155,7 +286,6 @@ def render():
 - RF: 18-24 psi
 - LR: 14-18 psi
 - RR: 18-24 psi""")
-
         st.markdown("### Spring Rate Guide")
         st.markdown("""
 | Position | Soft | Medium | Stiff |
@@ -165,7 +295,6 @@ def render():
 | LR | 175-200 | 200-250 | 250-350 |
 | RR | 175-200 | 200-250 | 250-350 |
 """)
-
         st.markdown("### Gear Ratio Quick Ref")
         st.markdown("""
 | Track Size | Suggested Range |

@@ -17,8 +17,7 @@ SCANNER_HTML = """
   #result-box {
     margin-top: 8px; padding: 8px 12px;
     background: #1e2a3a; color: #7fdbca;
-    border-radius: 6px; font-size: 14px;
-    display: none;
+    border-radius: 6px; font-size: 14px; display: none;
   }
   #send-btn {
     background: #2980b9; color: white; border: none;
@@ -35,21 +34,13 @@ SCANNER_HTML = """
 </div>
 <script src="https://unpkg.com/@zxing/browser@latest/umd/index.min.js"></script>
 <script>
-  let codeReader = null;
-  let scanning = false;
-  let lastResult = "";
-
-  function toggleScanner() {
-    if (scanning) { stopScanner(); } else { startScanner(); }
-  }
-
+  let codeReader = null; let scanning = false; let lastResult = "";
+  function toggleScanner() { if (scanning) { stopScanner(); } else { startScanner(); } }
   function startScanner() {
     scanning = true;
     const btn = document.getElementById('scan-btn');
-    btn.textContent = '\\u23F9 Stop Scanner';
-    btn.classList.add('active');
+    btn.textContent = '\\u23F9 Stop Scanner'; btn.classList.add('active');
     document.getElementById('video').style.display = 'block';
-
     codeReader = new ZXingBrowser.BrowserMultiFormatReader();
     codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
       if (result) {
@@ -61,21 +52,83 @@ SCANNER_HTML = """
       }
     });
   }
-
   function stopScanner() {
     scanning = false;
     if (codeReader) { codeReader.reset(); codeReader = null; }
     const btn = document.getElementById('scan-btn');
-    btn.textContent = '\\u1F4F7 Scan Barcode';
-    btn.classList.remove('active');
+    btn.textContent = '\\u1F4F7 Scan Barcode'; btn.classList.remove('active');
     document.getElementById('video').style.display = 'none';
   }
-
-  function sendResult() {
-    window.parent.postMessage({ type: 'barcode_result', value: lastResult }, '*');
-  }
+  function sendResult() { window.parent.postMessage({ type: 'barcode_result', value: lastResult }, '*'); }
 </script>
 """
+
+
+# --- Helper: render a registration category tab ---
+def _reg_tab(category, icon, reg_df, tire_numbers, tab_key):
+  cat_data = reg_df[reg_df["category"] == category] if not reg_df.empty and "category" in reg_df.columns else None
+  if cat_data is not None and not cat_data.empty:
+    display_cols = [c for c in ["tire_number", "track_or_series", "notes", "registered_date"] if c in cat_data.columns]
+    st.dataframe(cat_data[display_cols] if display_cols else cat_data, use_container_width=True, hide_index=True)
+    if "track_or_series" in cat_data.columns:
+      groups = cat_data["track_or_series"].unique().tolist()
+      for grp in groups:
+        grp_tires = cat_data[cat_data["track_or_series"] == grp]
+        with st.expander(f"{icon} {grp} ({len(grp_tires)} tires)"):
+          for _, r in grp_tires.iterrows():
+            tc1, tc2 = st.columns([3, 1])
+            with tc1:
+              st.markdown(f"**{r.get('tire_number', '')}** \u2014 {r.get('notes', '')}")
+            with tc2:
+              st.caption(r.get("registered_date", ""))
+  else:
+    st.info(f"No tires registered for {category} yet.")
+
+  with st.form(f"reg_{tab_key}_form", clear_on_submit=True):
+    st.markdown(f"**Register a Tire for {category}**")
+    rc1, rc2 = st.columns(2)
+    with rc1:
+      if tire_numbers:
+        sel_tire = st.selectbox("Select Tire from Inventory", [""] + tire_numbers, key=f"{tab_key}_tire_inv")
+        man_tire = st.text_input("Or enter tire number manually", key=f"{tab_key}_tire_manual")
+      else:
+        sel_tire = ""
+        man_tire = st.text_input("Tire Number / Serial", key=f"{tab_key}_tire_manual")
+    with rc2:
+      loc_name = st.text_input("Track / Series Name", key=f"{tab_key}_loc_name")
+    reg_notes = st.text_input("Notes (optional)", key=f"{tab_key}_reg_notes")
+    if st.form_submit_button(f"Register for {category}", type="primary"):
+      final_tire = sel_tire if sel_tire else man_tire
+      if not final_tire:
+        st.error("Enter or select a tire number.")
+      elif not loc_name:
+        st.error("Enter a track or series name.")
+      else:
+        append_row("tire_reg", {
+          "tire_number": final_tire,
+          "category": category,
+          "track_or_series": loc_name,
+          "notes": reg_notes,
+          "registered_date": timestamp_now(),
+        })
+        st.success(f"Tire '{final_tire}' registered for {category}!")
+        st.rerun()
+
+  if cat_data is not None and not cat_data.empty and "tire_number" in cat_data.columns:
+    st.markdown("---")
+    del_labels = []
+    del_indices = []
+    for i, r in cat_data.iterrows():
+      label = f"{r.get('tire_number', '')} @ {r.get('track_or_series', '')}"
+      del_labels.append(label)
+      del_indices.append(i)
+    del_choice = st.selectbox("Select registration to remove", del_labels, key=f"del_{tab_key}_reg")
+    if st.button("Remove Registration", key=f"del_{tab_key}_btn", type="secondary"):
+      sel_idx = del_labels.index(del_choice)
+      sheet_row = del_indices[sel_idx] + 2
+      delete_row("tire_reg", sheet_row)
+      st.success(f"Registration removed: {del_choice}")
+      st.rerun()
 
 
 def render():
@@ -89,7 +142,6 @@ def render():
   with tab1:
     df = read_sheet("tires")
     if not df.empty:
-      # Filters
       fc1, fc2, fc3 = st.columns(3)
       with fc1:
         status_filt = st.selectbox("Status", ["All", "New", "Practice", "Delaware", "Series", "Used", "Scrapped"])
@@ -171,169 +223,42 @@ def render():
   # ==============================================
   with tab2:
     st.subheader("Registered Tires")
-    st.caption("Keep track of which tires are registered for your Home Track or a Series. Add, view, and remove registrations below.")
+    st.caption("Track which tires are registered for Practice, Delaware, or Series. Add, view, and remove registrations below.")
 
     reg_df = read_sheet("tire_reg")
     tire_df = read_sheet("tires")
     tire_numbers = tire_df["tire_number"].tolist() if not tire_df.empty and "tire_number" in tire_df.columns else []
 
     # --- Summary metrics ---
-    ht_count = 0
+    prac_count = 0
+    del_count = 0
     ser_count = 0
     if not reg_df.empty and "category" in reg_df.columns:
-      ht_count = len(reg_df[reg_df["category"] == "Home Track"])
+      prac_count = len(reg_df[reg_df["category"] == "Practice"])
+      del_count = len(reg_df[reg_df["category"] == "Delaware"])
       ser_count = len(reg_df[reg_df["category"] == "Series"])
-    mc1, mc2, mc3 = st.columns(3)
+    mc1, mc2, mc3, mc4 = st.columns(4)
     with mc1:
-      st.metric("Total Registered", ht_count + ser_count)
+      st.metric("Total Registered", prac_count + del_count + ser_count)
     with mc2:
-      st.metric("Home Track", ht_count)
+      st.metric("Practice", prac_count)
     with mc3:
+      st.metric("Delaware", del_count)
+    with mc4:
       st.metric("Series", ser_count)
 
     st.divider()
 
-    reg_ht, reg_ser = st.tabs(["\U0001f3e0 Home Track", "\U0001f3c6 Series"])
+    reg_prac, reg_del, reg_ser = st.tabs(["\U0001f3ce Practice", "\U0001f3c1 Delaware", "\U0001f3c6 Series"])
 
-    # ---- Home Track ----
-    with reg_ht:
-      ht_data = reg_df[reg_df["category"] == "Home Track"] if not reg_df.empty and "category" in reg_df.columns else None
-      if ht_data is not None and not ht_data.empty:
-        display_cols = [c for c in ["tire_number", "track_or_series", "notes", "registered_date"] if c in ht_data.columns]
-        st.dataframe(ht_data[display_cols] if display_cols else ht_data, use_container_width=True, hide_index=True)
+    with reg_prac:
+      _reg_tab("Practice", "\U0001f3ce", reg_df, tire_numbers, "prac")
 
-        # Group by track
-        if "track_or_series" in ht_data.columns:
-          tracks = ht_data["track_or_series"].unique().tolist()
-          for trk in tracks:
-            trk_tires = ht_data[ht_data["track_or_series"] == trk]
-            with st.expander(f"\U0001f3c1 {trk} ({len(trk_tires)} tires)"):
-              for _, r in trk_tires.iterrows():
-                tc1, tc2 = st.columns([3, 1])
-                with tc1:
-                  st.markdown(f"**{r.get('tire_number', '')}** — {r.get('notes', '')}")
-                with tc2:
-                  st.caption(r.get("registered_date", ""))
-      else:
-        st.info("No tires registered for Home Track yet.")
+    with reg_del:
+      _reg_tab("Delaware", "\U0001f3c1", reg_df, tire_numbers, "del")
 
-      # Add registration form
-      with st.form("reg_ht_form", clear_on_submit=True):
-        st.markdown("**Register a Tire for Home Track**")
-        rc1, rc2 = st.columns(2)
-        with rc1:
-          if tire_numbers:
-            ht_tire = st.selectbox("Select Tire from Inventory", [""] + tire_numbers, key="ht_tire_inv")
-            ht_tire_manual = st.text_input("Or enter tire number manually", key="ht_tire_manual")
-          else:
-            ht_tire = ""
-            ht_tire_manual = st.text_input("Tire Number / Serial", key="ht_tire_manual")
-        with rc2:
-          ht_track = st.text_input("Track Name", key="ht_track_name")
-        ht_notes = st.text_input("Notes (optional)", key="ht_reg_notes")
-        if st.form_submit_button("Register for Home Track", type="primary"):
-          final_tire = ht_tire if ht_tire else ht_tire_manual
-          if not final_tire:
-            st.error("Enter or select a tire number.")
-          elif not ht_track:
-            st.error("Enter a track name.")
-          else:
-            append_row("tire_reg", {
-              "tire_number": final_tire,
-              "category": "Home Track",
-              "track_or_series": ht_track,
-              "notes": ht_notes,
-              "registered_date": timestamp_now(),
-            })
-            st.success(f"Tire '{final_tire}' registered for Home Track at {ht_track}!")
-            st.rerun()
-
-      # Delete registration
-      if ht_data is not None and not ht_data.empty and "tire_number" in ht_data.columns:
-        st.markdown("---")
-        del_labels = []
-        del_indices = []
-        for i, r in ht_data.iterrows():
-          label = f"{r.get('tire_number', '')} @ {r.get('track_or_series', '')}"
-          del_labels.append(label)
-          del_indices.append(i)
-        del_choice = st.selectbox("Select registration to remove", del_labels, key="del_ht_reg")
-        if st.button("Remove Registration", key="del_ht_btn", type="secondary"):
-          sel_idx = del_labels.index(del_choice)
-          sheet_row = del_indices[sel_idx] + 2
-          delete_row("tire_reg", sheet_row)
-          st.success(f"Registration removed: {del_choice}")
-          st.rerun()
-
-    # ---- Series ----
     with reg_ser:
-      ser_data = reg_df[reg_df["category"] == "Series"] if not reg_df.empty and "category" in reg_df.columns else None
-      if ser_data is not None and not ser_data.empty:
-        display_cols = [c for c in ["tire_number", "track_or_series", "notes", "registered_date"] if c in ser_data.columns]
-        st.dataframe(ser_data[display_cols] if display_cols else ser_data, use_container_width=True, hide_index=True)
-
-        # Group by series
-        if "track_or_series" in ser_data.columns:
-          series_list = ser_data["track_or_series"].unique().tolist()
-          for ser_name in series_list:
-            ser_tires = ser_data[ser_data["track_or_series"] == ser_name]
-            with st.expander(f"\U0001f3c6 {ser_name} ({len(ser_tires)} tires)"):
-              for _, r in ser_tires.iterrows():
-                tc1, tc2 = st.columns([3, 1])
-                with tc1:
-                  st.markdown(f"**{r.get('tire_number', '')}** — {r.get('notes', '')}")
-                with tc2:
-                  st.caption(r.get("registered_date", ""))
-      else:
-        st.info("No tires registered for any Series yet.")
-
-      # Add registration form
-      with st.form("reg_ser_form", clear_on_submit=True):
-        st.markdown("**Register a Tire for a Series**")
-        sc1, sc2 = st.columns(2)
-        with sc1:
-          if tire_numbers:
-            ser_tire = st.selectbox("Select Tire from Inventory", [""] + tire_numbers, key="ser_tire_inv")
-            ser_tire_manual = st.text_input("Or enter tire number manually", key="ser_tire_manual")
-          else:
-            ser_tire = ""
-            ser_tire_manual = st.text_input("Tire Number / Serial", key="ser_tire_manual")
-        with sc2:
-          ser_series = st.text_input("Series Name", key="ser_series_name")
-        ser_notes = st.text_input("Notes (optional)", key="ser_reg_notes")
-        if st.form_submit_button("Register for Series", type="primary"):
-          final_tire = ser_tire if ser_tire else ser_tire_manual
-          if not final_tire:
-            st.error("Enter or select a tire number.")
-          elif not ser_series:
-            st.error("Enter a series name.")
-          else:
-            append_row("tire_reg", {
-              "tire_number": final_tire,
-              "category": "Series",
-              "track_or_series": ser_series,
-              "notes": ser_notes,
-              "registered_date": timestamp_now(),
-            })
-            st.success(f"Tire '{final_tire}' registered for {ser_series}!")
-            st.rerun()
-
-      # Delete registration
-      if ser_data is not None and not ser_data.empty and "tire_number" in ser_data.columns:
-        st.markdown("---")
-        del_labels_s = []
-        del_indices_s = []
-        for i, r in ser_data.iterrows():
-          label = f"{r.get('tire_number', '')} @ {r.get('track_or_series', '')}"
-          del_labels_s.append(label)
-          del_indices_s.append(i)
-        del_choice_s = st.selectbox("Select registration to remove", del_labels_s, key="del_ser_reg")
-        if st.button("Remove Registration", key="del_ser_btn", type="secondary"):
-          sel_idx = del_labels_s.index(del_choice_s)
-          sheet_row = del_indices_s[sel_idx] + 2
-          delete_row("tire_reg", sheet_row)
-          st.success(f"Registration removed: {del_choice_s}")
-          st.rerun()
+      _reg_tab("Series", "\U0001f3c6", reg_df, tire_numbers, "ser")
 
   # ==============================================
   # TAB 3 -- Add New Tire
@@ -341,7 +266,6 @@ def render():
   with tab3:
     chassis_list = get_chassis_list()
 
-    # --- Barcode Scanner (outside form so session_state can update) ---
     if "scanned_tire_number" not in st.session_state:
       st.session_state["scanned_tire_number"] = ""
 
@@ -361,7 +285,6 @@ def render():
       height=60,
     )
 
-    # Pick up barcode from query params if present
     params = st.query_params
     if "barcode" in params and params["barcode"]:
       st.session_state["scanned_tire_number"] = params["barcode"]

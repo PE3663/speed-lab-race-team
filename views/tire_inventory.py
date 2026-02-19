@@ -1,4 +1,5 @@
 import streamlit as st
+import time
 from PIL import Image
 from pyzbar.pyzbar import decode as pyzbar_decode
 from utils.gsheet_db import read_sheet, append_row, delete_row, update_row, get_chassis_list, timestamp_now
@@ -94,7 +95,6 @@ def render():
             if compound_filt and "compound" in filtered.columns:
                 filtered = filtered[filtered["compound"].str.contains(compound_filt, case=False, na=False)]
             st.dataframe(filtered, use_container_width=True, hide_index=True)
-
             st.divider()
             st.subheader("Quick Stats")
             sc1, sc2, sc3, sc4 = st.columns(4)
@@ -119,10 +119,8 @@ def render():
                     with st.form("edit_tire_form", clear_on_submit=False):
                         ec1, ec2 = st.columns(2)
                         with ec1:
-                            e_status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"],
-                                index=["New", "Practice", "Delaware", "Series", "Used", "Scrapped"].index(row.get("status", "New")) if row.get("status", "New") in ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"] else 0)
-                            e_position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"],
-                                index=["LF", "RF", "LR", "RR", "Spare"].index(row.get("position", "LF")) if row.get("position", "LF") in ["LF", "RF", "LR", "RR", "Spare"] else 0)
+                            e_status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"], index=["New", "Practice", "Delaware", "Series", "Used", "Scrapped"].index(row.get("status", "New")) if row.get("status", "New") in ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"] else 0)
+                            e_position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"], index=["LF", "RF", "LR", "RR", "Spare"].index(row.get("position", "LF")) if row.get("position", "LF") in ["LF", "RF", "LR", "RR", "Spare"] else 0)
                             e_durometer = st.text_input("Durometer Reading", value=row.get("durometer", ""))
                         with ec2:
                             e_laps = st.text_input("Laps Run", value=row.get("laps_run", "0"))
@@ -164,7 +162,6 @@ def render():
         reg_df = read_sheet("tire_reg")
         tire_df = read_sheet("tires")
         tire_numbers = tire_df["tire_number"].tolist() if not tire_df.empty and "tire_number" in tire_df.columns else []
-
         # --- Summary metrics ---
         prac_count = 0
         del_count = 0
@@ -215,8 +212,8 @@ def render():
                         st.warning("No barcode detected. Try again with better lighting or hold the barcode closer.")
                 except Exception as e:
                     st.error(f"Scanner error: {e}")
-            if st.session_state["scanned_tire_number"]:
-                st.success(f"Scanned: **{st.session_state['scanned_tire_number']}** -- pre-filled below")
+        if st.session_state["scanned_tire_number"]:
+            st.success(f"Scanned: **{st.session_state['scanned_tire_number']}** -- pre-filled below")
 
         with st.form("add_tire", clear_on_submit=True):
             st.subheader("New Tire Entry")
@@ -243,7 +240,6 @@ def render():
                 laps_run = st.number_input("Laps Run", min_value=0, value=0)
                 races_run = st.number_input("Races Run", min_value=0, value=0)
             notes = st.text_area("Notes (heat cycles, shaving, etc.)")
-
             if st.form_submit_button("Save Tire", type="primary"):
                 if not tire_number:
                     st.error("Tire number is required.")
@@ -266,14 +262,18 @@ def render():
                     })
                     # Auto-register for Practice, Delaware, or Series
                     if status in ["Practice", "Delaware", "Series"]:
-                        append_row("tire_reg", {
-                            "tire_number": tire_number,
-                            "category": status,
-                            "track_or_series": status,
-                            "notes": notes,
-                            "registered_date": timestamp_now(),
-                        })
-                        st.success(f"Tire '{tire_number}' added and registered for {status}!")
+                        time.sleep(2)
+                        try:
+                            append_row("tire_reg", {
+                                "tire_number": tire_number,
+                                "category": status,
+                                "track_or_series": status,
+                                "notes": notes,
+                                "registered_date": timestamp_now(),
+                            })
+                            st.success(f"Tire '{tire_number}' added and registered for {status}!")
+                        except Exception as e:
+                            st.warning(f"Tire saved but auto-registration failed: {e}")
                     else:
                         st.success(f"Tire '{tire_number}' added!")
                     st.session_state["scanned_tire_number"] = ""

@@ -62,16 +62,24 @@ def _get_ai_suggestion(client, setup_summary, symptom):
     system_msg = (
         "You are an expert oval-track racing engineer specializing in Pro Late Model "
         "stock cars. The driver will describe a handling problem and provide their current "
-        "chassis setup. Respond with concise, actionable adjustment recommendations. "
+        "chassis setup (if available). Respond with concise, actionable adjustment recommendations. "
         "For each recommendation, explain WHAT to change, HOW MUCH to change it, "
         "and WHY it helps. Keep the response under 300 words. "
-        "Focus on the most impactful 2-3 changes."
+        "Focus on the most impactful 3-4 changes."
     )
-    user_msg = (
-        f"Current Setup:\n{setup_summary}\n\n"
-        f"Problem: {symptom}\n\n"
-        "What specific setup changes do you recommend?"
-    )
+    if setup_summary == "No setup data available.":
+        user_msg = (
+            f"Problem: {symptom}\n\n"
+            "No specific setup data is available yet. Please provide general "
+            "Pro Late Model oval track recommendations for this handling issue. "
+            "What specific setup changes do you recommend?"
+        )
+    else:
+        user_msg = (
+            f"Current Setup:\n{setup_summary}\n\n"
+            f"Problem: {symptom}\n\n"
+            "What specific setup changes do you recommend?"
+        )
     try:
         resp = client.chat.completions.create(
             model="sonar",
@@ -128,7 +136,6 @@ SYMPTOM_FIXES = {
 
 def render():
     st.header("Trackside Tuning")
-
     ai_client = _get_ai_client()
 
     # ---- load setup data for AI context ----
@@ -136,7 +143,6 @@ def render():
         setup_df = read_sheet("Setups")
     except Exception:
         setup_df = pd.DataFrame()
-
     setup_summary = _build_setup_summary(setup_df)
 
     # ---- What's the car doing? ----
@@ -149,12 +155,15 @@ def render():
     if st.button("Get Recommendations", type="primary"):
         st.markdown("---")
 
-        # AI-powered recommendation
-        if ai_client and setup_summary != "No setup data available.":
-            with st.spinner("Analyzing setup with AI..."):
+        # AI-powered recommendation (works with or without setup data)
+        if ai_client:
+            with st.spinner("Analyzing with AI..."):
                 ai_advice = _get_ai_suggestion(ai_client, setup_summary, symptom)
             st.subheader("AI Recommendation")
-            st.info("Based on your actual setup data and the selected handling issue:")
+            if setup_summary != "No setup data available.":
+                st.info("Based on your actual setup data and the selected handling issue:")
+            else:
+                st.info("General recommendation (add setup data in Setup Book for tailored advice):")
             st.markdown(ai_advice)
             st.markdown("---")
 

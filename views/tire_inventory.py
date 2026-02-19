@@ -7,13 +7,16 @@ SCANNER_HTML = """
 <style>
   body { margin: 0; padding: 0; }
   #scanner-wrap { font-family: sans-serif; }
-  #video { width: 100%; max-width: 400px; border-radius: 8px; display: none; }
   #scan-btn {
     background: #e74c3c; color: white; border: none;
     padding: 10px 20px; border-radius: 6px; font-size: 15px;
     cursor: pointer; margin-bottom: 8px;
   }
   #scan-btn.active { background: #27ae60; }
+  #video {
+    width: 100%; max-width: 400px; border-radius: 8px;
+    display: none;
+  }
   #result-box {
     margin-top: 8px; padding: 8px 12px;
     background: #1e2a3a; color: #7fdbca;
@@ -24,42 +27,129 @@ SCANNER_HTML = """
     padding: 8px 18px; border-radius: 6px; font-size: 14px;
     cursor: pointer; margin-top: 6px; display: none;
   }
+  #file-input { display: none; }
+  #error-box {
+    margin-top: 8px; padding: 8px 12px;
+    background: #3a1e1e; color: #ff8a80;
+    border-radius: 6px; font-size: 13px; display: none;
+  }
 </style>
 <div id="scanner-wrap">
-  <button id="scan-btn" onclick="toggleScanner()">&#x1F4F7; Scan Barcode</button><br>
+  <button id="scan-btn" onclick="startScanner()">&#x1F4F7; Scan Barcode</button><br>
   <video id="video" autoplay playsinline></video>
   <canvas id="canvas" style="display:none"></canvas>
+  <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handleFileCapture(event)">
   <div id="result-box"></div>
+  <div id="error-box"></div>
   <button id="send-btn" onclick="sendResult()">Use this number</button>
 </div>
-<script src="https://unpkg.com/@zxing/browser@latest/umd/index.min.js"></script>
+<script src="https://unpkg.com/@zxing/browser@0.1.4/umd/index.min.js"></script>
 <script>
-  let codeReader = null; let scanning = false; let lastResult = "";
-  function toggleScanner() { if (scanning) { stopScanner(); } else { startScanner(); } }
-  function startScanner() {
-    scanning = true;
-    const btn = document.getElementById('scan-btn');
-    btn.textContent = '\\u23F9 Stop Scanner'; btn.classList.add('active');
-    document.getElementById('video').style.display = 'block';
-    codeReader = new ZXingBrowser.BrowserMultiFormatReader();
-    codeReader.decodeFromVideoDevice(null, 'video', (result, err) => {
-      if (result) {
-        lastResult = result.getText();
-        document.getElementById('result-box').style.display = 'block';
-        document.getElementById('result-box').textContent = '\\u2705 Scanned: ' + lastResult;
-        document.getElementById('send-btn').style.display = 'inline-block';
-        stopScanner();
+let codeReader = null;
+let scanning = false;
+let lastResult = "";
+let stream = null;
+
+function showError(msg) {
+  var eb = document.getElementById('error-box');
+  eb.textContent = msg;
+  eb.style.display = 'block';
+  setTimeout(function() { eb.style.display = 'none'; }, 5000);
+}
+
+function startScanner() {
+  var errorBox = document.getElementById('error-box');
+  errorBox.style.display = 'none';
+  // Try live video first, fall back to file capture
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(function(s) {
+        stream = s;
+        scanning = true;
+        var btn = document.getElementById('scan-btn');
+        btn.textContent = '\u23F9 Stop Scanner';
+        btn.classList.add('active');
+        var video = document.getElementById('video');
+        video.style.display = 'block';
+        video.srcObject = stream;
+        codeReader = new ZXingBrowser.BrowserMultiFormatReader();
+        codeReader.decodeFromVideoDevice(null, 'video', function(result, err) {
+          if (result) {
+            lastResult = result.getText();
+            document.getElementById('result-box').style.display = 'block';
+            document.getElementById('result-box').textContent = '\u2705 Scanned: ' + lastResult;
+            document.getElementById('send-btn').style.display = 'inline-block';
+            stopScanner();
+          }
+        });
+      })
+      .catch(function(err) {
+        // Camera denied or not available - use file capture
+        document.getElementById('file-input').click();
+      });
+  } else {
+    // No getUserMedia - use file capture
+    document.getElementById('file-input').click();
+  }
+}
+
+function stopScanner() {
+  scanning = false;
+  if (stream) {
+    stream.getTracks().forEach(function(t) { t.stop(); });
+    stream = null;
+  }
+  if (codeReader) {
+    codeReader.reset();
+    codeReader = null;
+  }
+  var btn = document.getElementById('scan-btn');
+  btn.textContent = '\u1F4F7 Scan Barcode';
+  btn.classList.remove('active');
+  document.getElementById('video').style.display = 'none';
+}
+
+function handleFileCapture(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var img = new Image();
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    img.onload = function() {
+      var canvas = document.getElementById('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      try {
+        var zxingReader = new ZXingBrowser.BrowserMultiFormatReader();
+        var luminance = ZXingBrowser.HTMLCanvasElementLuminanceSource
+          ? new ZXingBrowser.HTMLCanvasElementLuminanceSource(canvas)
+          : null;
+        // Decode from image URL instead
+        zxingReader.decodeFromImageUrl(e.target.result)
+          .then(function(result) {
+            lastResult = result.getText();
+            document.getElementById('result-box').style.display = 'block';
+            document.getElementById('result-box').textContent = '\u2705 Scanned: ' + lastResult;
+            document.getElementById('send-btn').style.display = 'inline-block';
+          })
+          .catch(function(err) {
+            showError('No barcode found in image. Try again with better lighting.');
+          });
+      } catch(err) {
+        showError('Scanner error: ' + err.message);
       }
-    });
-  }
-  function stopScanner() {
-    scanning = false;
-    if (codeReader) { codeReader.reset(); codeReader = null; }
-    const btn = document.getElementById('scan-btn');
-    btn.textContent = '\\u1F4F7 Scan Barcode'; btn.classList.remove('active');
-    document.getElementById('video').style.display = 'none';
-  }
-  function sendResult() { window.parent.postMessage({ type: 'barcode_result', value: lastResult }, '*'); }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function sendResult() {
+  window.parent.postMessage({ type: 'barcode_result', value: lastResult }, '*');
+}
 </script>
 """
 
@@ -83,7 +173,6 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key):
               st.caption(r.get("registered_date", ""))
   else:
     st.info(f"No tires registered for {category} yet.")
-
   with st.form(f"reg_{tab_key}_form", clear_on_submit=True):
     st.markdown(f"**Register a Tire for {category}**")
     rc1, rc2 = st.columns(2)
@@ -96,7 +185,7 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key):
         man_tire = st.text_input("Tire Number / Serial", key=f"{tab_key}_tire_manual")
     with rc2:
       loc_name = st.text_input("Track / Series Name", key=f"{tab_key}_loc_name")
-    reg_notes = st.text_input("Notes (optional)", key=f"{tab_key}_reg_notes")
+      reg_notes = st.text_input("Notes (optional)", key=f"{tab_key}_reg_notes")
     if st.form_submit_button(f"Register for {category}", type="primary"):
       final_tire = sel_tire if sel_tire else man_tire
       if not final_tire:
@@ -113,7 +202,6 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key):
         })
         st.success(f"Tire '{final_tire}' registered for {category}!")
         st.rerun()
-
   if cat_data is not None and not cat_data.empty and "tire_number" in cat_data.columns:
     st.markdown("---")
     del_labels = []
@@ -133,9 +221,7 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key):
 
 def render():
   st.header("\U0001f6a2 Tire Inventory")
-
   tab1, tab2, tab3 = st.tabs(["View Tires", "Registered Tires", "Add New Tire"])
-
   # ==============================================
   # TAB 1 -- View Tires (Inventory)
   # ==============================================
@@ -149,7 +235,6 @@ def render():
         pos_filt = st.selectbox("Position", ["All", "LF", "RF", "LR", "RR", "Spare"])
       with fc3:
         compound_filt = st.text_input("Compound Filter")
-
       filtered = df.copy()
       if status_filt != "All" and "status" in filtered.columns:
         filtered = filtered[filtered["status"] == status_filt]
@@ -157,9 +242,7 @@ def render():
         filtered = filtered[filtered["position"] == pos_filt]
       if compound_filt and "compound" in filtered.columns:
         filtered = filtered[filtered["compound"].str.contains(compound_filt, case=False, na=False)]
-
       st.dataframe(filtered, use_container_width=True, hide_index=True)
-
       st.divider()
       st.subheader("Quick Stats")
       sc1, sc2, sc3, sc4 = st.columns(4)
@@ -171,7 +254,6 @@ def render():
         st.metric("Delaware", len(df[df["status"] == "Delaware"]) if "status" in df.columns else 0)
       with sc4:
         st.metric("Used", len(df[df["status"] == "Used"]) if "status" in df.columns else 0)
-
       # --- Edit Tire ---
       st.divider()
       st.subheader("Edit Tire")
@@ -204,7 +286,6 @@ def render():
               update_row("tires", row_idx + 2, updated)
               st.success(f"Tire '{edit_sel}' updated!")
               st.rerun()
-
       # --- Delete Tire ---
       st.divider()
       st.subheader("Delete Tire")
@@ -217,18 +298,15 @@ def render():
           st.rerun()
     else:
       st.info("No tires in inventory. Add your first tire below.")
-
   # ==============================================
   # TAB 2 -- Registered Tires
   # ==============================================
   with tab2:
     st.subheader("Registered Tires")
     st.caption("Track which tires are registered for Practice, Delaware, or Series. Add, view, and remove registrations below.")
-
     reg_df = read_sheet("tire_reg")
     tire_df = read_sheet("tires")
     tire_numbers = tire_df["tire_number"].tolist() if not tire_df.empty and "tire_number" in tire_df.columns else []
-
     # --- Summary metrics ---
     prac_count = 0
     del_count = 0
@@ -246,32 +324,23 @@ def render():
       st.metric("Delaware", del_count)
     with mc4:
       st.metric("Series", ser_count)
-
     st.divider()
-
     reg_prac, reg_del, reg_ser = st.tabs(["\U0001f3ce Practice", "\U0001f3c1 Delaware", "\U0001f3c6 Series"])
-
     with reg_prac:
       _reg_tab("Practice", "\U0001f3ce", reg_df, tire_numbers, "prac")
-
     with reg_del:
       _reg_tab("Delaware", "\U0001f3c1", reg_df, tire_numbers, "del")
-
     with reg_ser:
       _reg_tab("Series", "\U0001f3c6", reg_df, tire_numbers, "ser")
-
   # ==============================================
   # TAB 3 -- Add New Tire
   # ==============================================
   with tab3:
     chassis_list = get_chassis_list()
-
     if "scanned_tire_number" not in st.session_state:
       st.session_state["scanned_tire_number"] = ""
-
     components.html(
       SCANNER_HTML + """
-      <script>
       window.addEventListener('message', function(e) {
         if (e.data && e.data.type === 'barcode_result') {
           const url = new URL(window.parent.location.href);
@@ -282,17 +351,14 @@ def render():
       });
       </script>
       """,
-      height=60,
+      height=200,
     )
-
     params = st.query_params
     if "barcode" in params and params["barcode"]:
       st.session_state["scanned_tire_number"] = params["barcode"]
       st.query_params.clear()
-
     if st.session_state["scanned_tire_number"]:
       st.success(f"Scanned: **{st.session_state['scanned_tire_number']}** -- pre-filled below")
-
     with st.form("add_tire", clear_on_submit=True):
       st.subheader("New Tire Entry")
       c1, c2 = st.columns(2)
@@ -309,7 +375,6 @@ def render():
         status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"])
         assigned_chassis = st.selectbox("Assigned Chassis", [""] + chassis_list)
         date_purchased = st.date_input("Date Purchased")
-
       st.markdown("---")
       c3, c4 = st.columns(2)
       with c3:
@@ -318,9 +383,7 @@ def render():
       with c4:
         laps_run = st.number_input("Laps Run", min_value=0, value=0)
         races_run = st.number_input("Races Run", min_value=0, value=0)
-
       notes = st.text_area("Notes (heat cycles, shaving, etc.)")
-
       if st.form_submit_button("Save Tire", type="primary"):
         if not tire_number:
           st.error("Tire number is required.")

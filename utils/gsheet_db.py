@@ -139,7 +139,7 @@ def update_row(sheet_key: str, row_index: int, row_data: dict):
 def delete_row(sheet_key: str, row_index: int):
     """Delete a row at the given 1-based sheet row index."""
     ws = get_worksheet(sheet_key)
-    ws.delete_rows(row_index)
+    ws.delete_rows(int(row_index))
 
 
 def get_chassis_list() -> list:

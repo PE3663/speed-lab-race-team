@@ -1,8 +1,8 @@
 import gspread
 import streamlit as st
 import pandas as pd
+import time
 from datetime import datetime
-
 
 # -- Google Sheets Database Helper --
 SPREADSHEET_NAME = "SpeedLabRaceTeam"
@@ -15,7 +15,7 @@ SHEETS = {
     "parts": "parts_inventory",
     "maintenance": "maintenance",
     "tuning": "tuning_log",
-        "tire_reg": "tire_registrations",
+    "tire_reg": "tire_registrations",
 }
 
 
@@ -44,9 +44,24 @@ def _get_client():
     return gspread.service_account_from_dict(creds)
 
 
-def get_spreadsheet():
+@st.cache_resource(ttl=120)
+def _get_spreadsheet():
+    """Open the spreadsheet once and cache it for 120 seconds."""
     _require_credentials()
     return _get_client().open(SPREADSHEET_NAME)
+
+
+def get_spreadsheet():
+    """Return the cached spreadsheet, with retry on API errors."""
+    for attempt in range(3):
+        try:
+            return _get_spreadsheet()
+        except gspread.exceptions.APIError as e:
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+                _get_spreadsheet.clear()
+            else:
+                raise e
 
 
 def get_worksheet(sheet_key: str):
@@ -66,8 +81,10 @@ def read_sheet(sheet_key: str) -> pd.DataFrame:
         all_values = ws.get_all_values()
     except Exception:
         return pd.DataFrame()
+
     if not all_values or len(all_values) < 2:
         return pd.DataFrame()
+
     headers = all_values[0]
     # Find the last non-empty header to trim extra blank columns
     num_cols = 0
@@ -76,12 +93,14 @@ def read_sheet(sheet_key: str) -> pd.DataFrame:
             num_cols = i + 1
     if num_cols == 0:
         return pd.DataFrame()
+
     headers = headers[:num_cols]
     rows = [r[:num_cols] for r in all_values[1:]]
     # Filter out completely empty rows
     rows = [r for r in rows if any(cell.strip() for cell in r)]
     if not rows:
         return pd.DataFrame()
+
     return pd.DataFrame(rows, columns=headers)
 
 
@@ -90,6 +109,7 @@ def append_row(sheet_key: str, row_data: dict):
     ws = get_worksheet(sheet_key)
     headers = list(row_data.keys())
     existing = ws.get_all_values()
+
     if not existing or all(cell == "" for cell in existing[0]):
         # Sheet is empty -- write headers in row 1 then data in row 2
         ws.update("A1", [headers])

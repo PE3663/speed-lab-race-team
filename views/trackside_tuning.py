@@ -140,7 +140,7 @@ def render():
 
     # ---- load setup data for AI context ----
     try:
-        setup_df = read_sheet("Setups")
+        setup_df = read_sheet("setups")
     except Exception:
         setup_df = pd.DataFrame()
     setup_summary = _build_setup_summary(setup_df)

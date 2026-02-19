@@ -126,7 +126,7 @@ SYMPTOM_FIXES = {
 }
 
 
-def show():
+def render():
     st.header("Trackside Tuning")
 
     ai_client = _get_ai_client()

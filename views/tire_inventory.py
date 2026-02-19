@@ -92,7 +92,7 @@ def render():
       # Filters
       fc1, fc2, fc3 = st.columns(3)
       with fc1:
-        status_filt = st.selectbox("Status", ["All", "New", "In Use", "Used", "Scrapped"])
+        status_filt = st.selectbox("Status", ["All", "New", "Practice", "Delaware", "Series", "Used", "Scrapped"])
       with fc2:
         pos_filt = st.selectbox("Position", ["All", "LF", "RF", "LR", "RR", "Spare"])
       with fc3:
@@ -116,7 +116,7 @@ def render():
       with sc2:
         st.metric("New", len(df[df["status"] == "New"]) if "status" in df.columns else 0)
       with sc3:
-        st.metric("In Use", len(df[df["status"] == "In Use"]) if "status" in df.columns else 0)
+        st.metric("Delaware", len(df[df["status"] == "Delaware"]) if "status" in df.columns else 0)
       with sc4:
         st.metric("Used", len(df[df["status"] == "Used"]) if "status" in df.columns else 0)
 
@@ -132,7 +132,7 @@ def render():
           with st.form("edit_tire_form", clear_on_submit=False):
             ec1, ec2 = st.columns(2)
             with ec1:
-              e_status = st.selectbox("Status", ["New", "In Use", "Used", "Scrapped"], index=["New", "In Use", "Used", "Scrapped"].index(row.get("status", "New")) if row.get("status", "New") in ["New", "In Use", "Used", "Scrapped"] else 0)
+              e_status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"], index=["New", "Practice", "Delaware", "Series", "Used", "Scrapped"].index(row.get("status", "New")) if row.get("status", "New") in ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"] else 0)
               e_position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"], index=["LF", "RF", "LR", "RR", "Spare"].index(row.get("position", "LF")) if row.get("position", "LF") in ["LF", "RF", "LR", "RR", "Spare"] else 0)
               e_durometer = st.text_input("Durometer Reading", value=row.get("durometer", ""))
             with ec2:
@@ -383,7 +383,7 @@ def render():
         size = st.text_input("Size (e.g. 90/11-15)")
       with c2:
         position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"])
-        status = st.selectbox("Status", ["New", "In Use", "Used", "Scrapped"])
+        status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"])
         assigned_chassis = st.selectbox("Assigned Chassis", [""] + chassis_list)
         date_purchased = st.date_input("Date Purchased")
 

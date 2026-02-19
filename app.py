@@ -1,11 +1,11 @@
 import streamlit as st
 
-# -- Speed Lab Race Team App --
+# -- Speed Lab App --
 # Main entry point
 # Uses views/ directory for page modules (not pages/ to avoid Streamlit auto-nav)
 
 st.set_page_config(
-    page_title="Speed Lab Race Team",
+    page_title="Speed Lab",
     page_icon="🏁",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -29,7 +29,7 @@ def check_password():
     st.markdown(
         """
         <div style="text-align:center; padding-top:60px;">
-        <h1 style="color:#cc0000;">🏁 Speed Lab Race Team</h1>
+        <h1 style="color:#cc0000;">🏁 Speed Lab</h1>
         <p style="color:#888; font-size:1.1rem;">Setup Book & Team Manager</p>
         </div>
         """,
@@ -54,7 +54,7 @@ if not check_password():
 # -- Sidebar Navigation --
 with st.sidebar:
     st.markdown("# 🏁")
-    st.markdown("## Speed Lab Race Team")
+    st.markdown("## Speed Lab")
     st.caption(f"Logged in as **{st.session_state.get('current_user', '')}**")
     st.divider()
     page = st.radio(

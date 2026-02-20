@@ -284,7 +284,7 @@ def render():
 
             st.divider()
             st.subheader("\U0001f9f2 Springs & Shocks")
-            st.markdown("**Springs (lbs)")
+            st.markdown("**Springs (lbs)**")
             sp1, sp2, sp3, sp4 = st.columns(4)
             with sp1:
                 s_lf = st.text_input("LF Spring", value=_v(data, 'spring_lf'), key="cf_slf")

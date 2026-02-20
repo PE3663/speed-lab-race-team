@@ -1,7 +1,7 @@
 import streamlit as st
 from utils.gsheet_db import (
     read_sheet, get_chassis_list, timestamp_now,
-    find_race_day, upsert_race_day, ensure_race_day_headers,
+    find_race_day, upsert_race_day, ensure_race_day_headers, delete_row,
 )
 
 # -- All column headers the race_day sheet needs --
@@ -352,6 +352,27 @@ def render():
                 _show_detail(full_data)
             else:
                 st.warning("Could not load details for this race day.")
+
+                # Delete race day
+            st.divider()
+            st.markdown("**Danger Zone**")
+            if st.button("🗑️ Delete This Race Day", type="secondary", key="delete_race_day"):
+                st.session_state["confirm_delete"] = True
+            if st.session_state.get("confirm_delete"):
+                st.warning(f"Are you sure you want to delete {sel_date} — {sel_track}? This cannot be undone.")
+                c_yes, c_no = st.columns(2)
+                with c_yes:
+                    if st.button("✅ Yes, Delete", type="primary", key="confirm_del_yes"):
+                        row_idx, _ = find_race_day(sel_date, sel_track)
+                        if row_idx is not None:
+                            delete_row("race_day", row_idx)
+                        st.session_state.pop("confirm_delete", None)
+                        st.success("Race day deleted!")
+                        st.rerun()
+                with c_no:
+                    if st.button("❌ Cancel", key="confirm_del_no"):
+                        st.session_state.pop("confirm_delete", None)
+                        st.rerun()
 
     # ========================
     # TAB 2 -- Race Day Entry

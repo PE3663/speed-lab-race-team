@@ -1,6 +1,7 @@
 import streamlit as st
 from utils.gsheet_db import read_sheet, append_row, get_chassis_list, timestamp_now
 
+
 def tire_block(prefix, label):
     """Render tire size, stagger, air pressure, spring/bump in a clean layout."""
     st.markdown(f"**{label}**")
@@ -32,28 +33,28 @@ def tire_block(prefix, label):
     sf1, sf2 = st.columns(2)
     with sf1:
         st.markdown("*🔵 LF*")
-        lf_pres   = st.text_input("Air Pressure",      key=f"{prefix}_pres_lf")
-        lf_spring = st.text_input("Spring Rate (lbs)",  key=f"{prefix}_spring_lf")
-        lf_bump   = st.text_input("Bump Spring (lbs)",  key=f"{prefix}_bump_lf")
+        lf_pres   = st.text_input("Air Pressure",     key=f"{prefix}_pres_lf")
+        lf_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_lf")
+        lf_bump   = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_lf")
     with sf2:
         st.markdown("*🔴 RF*")
-        rf_pres   = st.text_input("Air Pressure",      key=f"{prefix}_pres_rf")
-        rf_spring = st.text_input("Spring Rate (lbs)",  key=f"{prefix}_spring_rf")
-        rf_bump   = st.text_input("Bump Spring (lbs)",  key=f"{prefix}_bump_rf")
+        rf_pres   = st.text_input("Air Pressure",     key=f"{prefix}_pres_rf")
+        rf_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_rf")
+        rf_bump   = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_rf")
 
     # --- Rear corner details: Air Pressure / Spring / Bump ---
     st.markdown("**Rear Corners**")
     sr1, sr2 = st.columns(2)
     with sr1:
         st.markdown("*🔵 LR*")
-        lr_pres   = st.text_input("Air Pressure",      key=f"{prefix}_pres_lr")
-        lr_spring = st.text_input("Spring Rate (lbs)",  key=f"{prefix}_spring_lr")
-        lr_bump   = st.text_input("Bump Spring (lbs)",  key=f"{prefix}_bump_lr")
+        lr_pres   = st.text_input("Air Pressure",     key=f"{prefix}_pres_lr")
+        lr_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_lr")
+        lr_bump   = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_lr")
     with sr2:
         st.markdown("*🔴 RR*")
-        rr_pres   = st.text_input("Air Pressure",      key=f"{prefix}_pres_rr")
-        rr_spring = st.text_input("Spring Rate (lbs)",  key=f"{prefix}_spring_rr")
-        rr_bump   = st.text_input("Bump Spring (lbs)",  key=f"{prefix}_bump_rr")
+        rr_pres   = st.text_input("Air Pressure",     key=f"{prefix}_pres_rr")
+        rr_spring = st.text_input("Spring Rate (lbs)", key=f"{prefix}_spring_rr")
+        rr_bump   = st.text_input("Bump Spring (lbs)", key=f"{prefix}_bump_rr")
 
     return {
         f"{prefix}_tire_lf":   lf_size,
@@ -75,6 +76,29 @@ def tire_block(prefix, label):
         f"{prefix}_bump_rr":   rr_bump,
         f"{prefix}_stagger_r": stagger_r,
     }
+
+
+def tire_temp_block(prefix, label):
+    """Render tire temp inputs (Inner/Mid/Outer) for all 4 corners inside a form."""
+    st.markdown(f"🌡️ **{label} — Tire Temps**")
+    corners = ["LF", "RF", "LR", "RR"]
+    temps = {}
+    tc1, tc2, tc3, tc4 = st.columns(4)
+    cols = [tc1, tc2, tc3, tc4]
+    icons = ["🔵", "🔴", "🔵", "🔴"]
+    for col, corner, icon in zip(cols, corners, icons):
+        with col:
+            st.markdown(f"**{icon} {corner}**")
+            t_in  = st.text_input("Inner",  key=f"{prefix}_temp_{corner}_in")
+            t_mid = st.text_input("Middle", key=f"{prefix}_temp_{corner}_mid")
+            t_out = st.text_input("Outer",  key=f"{prefix}_temp_{corner}_out")
+            temps[corner] = {"inner": t_in, "middle": t_mid, "outer": t_out}
+    data = {}
+    for corner in corners:
+        data[f"{prefix}_temp_{corner}_in"]  = temps[corner]["inner"]
+        data[f"{prefix}_temp_{corner}_mid"] = temps[corner]["middle"]
+        data[f"{prefix}_temp_{corner}_out"] = temps[corner]["outer"]
+    return data
 
 
 def render():
@@ -109,11 +133,13 @@ def render():
             # Practice #1
             p1 = tire_block("p1", "Practice #1 — Tires & Springs")
             practice_notes = st.text_area("Practice Notes", key="practice_notes")
+            p1_temps = tire_temp_block("p1", "Practice #1")
             st.markdown("---")
 
             # Practice #2
             p2 = tire_block("p2", "Practice #2 — Tires & Springs")
             practice2_notes = st.text_area("Practice #2 Notes", key="practice2_notes")
+            p2_temps = tire_temp_block("p2", "Practice #2")
             st.markdown("---")
 
             qualifying_notes = st.text_area("Qualifying")
@@ -122,11 +148,13 @@ def render():
             st.markdown("---")
             heat = tire_block("heat", "Heat Race — Tires & Springs")
             heat_notes = st.text_area("Heat Race Notes", key="heat_notes")
+            heat_temps = tire_temp_block("heat", "Heat Race")
 
             # Feature
             st.markdown("---")
             feat = tire_block("feat", "Feature — Tires & Springs")
             feature_notes = st.text_area("Feature Notes", key="feature_notes")
+            feat_temps = tire_temp_block("feat", "Feature")
 
             st.markdown("---")
             st.subheader("Results")
@@ -165,10 +193,13 @@ def render():
                 row.update(p2)
                 row.update(heat)
                 row.update(feat)
+                row.update(p1_temps)
+                row.update(p2_temps)
+                row.update(heat_temps)
+                row.update(feat_temps)
                 append_row("race_day", row)
                 st.success("Race day log saved!")
                 st.rerun()
-
 
     # ==============================================
     # TAB 3 -- Tire Temp (Camber Analysis)
@@ -179,7 +210,6 @@ def render():
 
         corners = ["LF", "RF", "LR", "RR"]
         temps = {}
-
         for corner in corners:
             with st.expander(f"\U0001f321 {corner} Temps", expanded=True):
                 tc1, tc2, tc3 = st.columns(3)
@@ -193,7 +223,6 @@ def render():
 
         st.divider()
         st.subheader("Camber Analysis Results")
-
         any_data = any(t["inner"] > 0 or t["outer"] > 0 for t in temps.values())
         if not any_data:
             st.info("Enter tire temperatures above to see camber analysis.")
@@ -225,5 +254,5 @@ def render():
                     with rc2:
                         st.markdown(f"{icon} **{camber_status}**")
                         st.caption(camber_advice)
-                        st.caption(f"Inner: {t_in}\u00b0 | Mid: {t_mid}\u00b0 | Outer: {t_out}\u00b0")
-                    st.markdown("---")
+                    st.caption(f"Inner: {t_in}\u00b0 | Mid: {t_mid}\u00b0 | Outer: {t_out}\u00b0")
+                st.markdown("---")

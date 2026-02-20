@@ -65,6 +65,31 @@ WEEKLY_CHECKLIST = {
 
 def _render_weekly_checklist():
     """Render the Weekly Pro Late Model Maintenance Checklist tab."""
+        # Print-friendly CSS
+    st.markdown("""
+    <style>
+    @media print {
+        /* Hide Streamlit UI chrome */
+        header, footer, [data-testid="stSidebar"],
+        [data-testid="stToolbar"], [data-testid="stDecoration"],
+        [data-testid="stStatusWidget"], .stButton,
+        [data-testid="stBottomBlockBtnGroup"],
+        .stProgress, .stDateInput, #MainMenu,
+        [data-testid="collapsedControl"] { display: none !important; }
+        /* Full width */
+        .main .block-container { max-width: 100% !important; padding: 0 !important; }
+        section[data-testid="stMain"] { padding: 0 !important; }
+        /* Clean checkbox appearance */
+        .stCheckbox label { font-size: 12pt !important; }
+        /* Page title */
+        @page { margin: 0.5in; }
+                /* Hide print button when printing */
+        button[onclick] { display: none !important; }
+        .stTextArea { page-break-inside: avoid; }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.subheader("Weekly Pro Late Model Maintenance")
     st.markdown("Check off each item as you complete your weekly maintenance. "
                 "Save the checklist when done to keep a dated record.")
@@ -104,6 +129,16 @@ def _render_weekly_checklist():
     progress = done_count / total_items if total_items > 0 else 0
     st.progress(progress, text=f"{done_count} / {total_items} items checked")
 
+        # Notes section
+    st.markdown("---")
+    st.markdown("**📝 Notes**")
+    checklist_notes = st.text_area(
+        "Add any notes, issues found, or reminders for next week",
+        height=120,
+        key="wc_notes",
+        placeholder="e.g., LR spring looked fatigued, need to order replacement..."
+    )
+
     # Save checklist
     col_save, col_reset = st.columns(2)
     with col_save:
@@ -128,6 +163,7 @@ def _render_weekly_checklist():
                     record["skipped_items"] = "; ".join(unchecked[:10])
                 else:
                     record["skipped_items"] = ""
+                record["notes"] = checklist_notes
 
                 append_row("weekly_checklist", record)
                 if done_count == total_items:
@@ -140,6 +176,16 @@ def _render_weekly_checklist():
         if st.button("Clear All", use_container_width=True):
             st.rerun()
 
+        # Print button
+    st.markdown(
+        '<button onclick="window.print()" style="'
+        'background-color:#4CAF50; color:white; padding:0.5rem 1.5rem;'
+        'border:none; border-radius:0.5rem; cursor:pointer; font-size:1rem;'
+        'margin-top:0.5rem;'
+        '">🖨️ Print Checklist</button>',
+        unsafe_allow_html=True,
+    )
+
     # Checklist History
     st.markdown("---")
     st.subheader("Checklist History")
@@ -151,7 +197,7 @@ def _render_weekly_checklist():
                                      "Suspension, Steering, Shocks", "Brakes & Wheels",
                                      "Chassis, Body, Safety", "Tires, Alignment, Setup",
                                      "Electrical & Data", "Cleaning & Notes",
-                                     "skipped_items"] if c in history_df.columns]
+                                     "skipped_items", "notes"] if c in history_df.columns]
         if display_cols:
             st.dataframe(
                 history_df[display_cols].iloc[::-1],

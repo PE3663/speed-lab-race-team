@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import time
 from urllib.parse import quote as url_quote
 from datetime import date
@@ -7,20 +8,19 @@ from pyzbar.pyzbar import decode as pyzbar_decode
 from utils.gsheet_db import read_sheet, append_row, delete_row, update_row, get_chassis_list, timestamp_now
 
 
-
 # --- Helper: build tire number list text for print/email ---
 def _build_tire_list_text(category, tire_numbers_list, driver_name, car_number, team_email, reg_date):
     """Build a plain-text tire registration list."""
     lines = []
     lines.append(f"TIRE REGISTRATION \u2014 {category.upper()}")
     lines.append("=" * 40)
-    lines.append(f"Date:        {reg_date}")
+    lines.append(f"Date:       {reg_date}")
     if driver_name:
-        lines.append(f"Driver:      {driver_name}")
+        lines.append(f"Driver:     {driver_name}")
     if car_number:
-        lines.append(f"Car #:       {car_number}")
+        lines.append(f"Car #:      {car_number}")
     if team_email:
-        lines.append(f"Team Email:  {team_email}")
+        lines.append(f"Team Email: {team_email}")
     lines.append("=" * 40)
     lines.append("")
     lines.append("Registered Tires:")
@@ -57,10 +57,10 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
     else:
         st.info(f"No tires registered for {category} yet.")
 
-        # --- Print / Email Registration List ---
+    # --- Print / Email Registration List ---
     if cat_data is not None and not cat_data.empty and "tire_number" in cat_data.columns:
         tire_nums = cat_data["tire_number"].tolist()
-        with st.expander(f"🖨️ Print / Email {category} Registration List", expanded=False):
+        with st.expander(f"\U0001f5a8 Print / Email {category} Registration List", expanded=False):
             pc1, pc2 = st.columns(2)
             with pc1:
                 driver_name = st.text_input("Driver Name", key=f"{tab_key}_driver")
@@ -71,39 +71,28 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
             reg_date_str = str(reg_date)
             # Build the text
             body_text = _build_tire_list_text(category, tire_nums, driver_name, car_number, team_email, reg_date_str)
-            # Print button — renders hidden div and prints it
+            # Print button using components.html so JavaScript executes
             tire_list_html = "<br>".join([f"{i}. &nbsp; {tn}" for i, tn in enumerate(tire_nums, 1)])
-            print_html = f"""
-            <div id="print_{tab_key}" style="display:none;">
-                <h2>TIRE REGISTRATION &mdash; {category.upper()}</h2>
-                <table style="margin-bottom:1em;">
-                    <tr><td><b>Date:</b></td><td id="p_{tab_key}_date">{reg_date_str}</td></tr>
-                    <tr><td><b>Driver:</b></td><td id="p_{tab_key}_driver">{driver_name}</td></tr>
-                    <tr><td><b>Car #:</b></td><td id="p_{tab_key}_car">{car_number}</td></tr>
-                    <tr><td><b>Email:</b></td><td id="p_{tab_key}_email">{team_email}</td></tr>
-                </table>
-                <h3>Registered Tires:</h3>
-                <div style="font-size:14pt;">{tire_list_html}</div>
-                <p><b>Total: {len(tire_nums)} tires registered</b></p>
-            </div>
-            <style>
-            @media print {{
-                body * {{ visibility: hidden !important; }}
-                #print_{tab_key}, #print_{tab_key} * {{ visibility: visible !important; }}
-                #print_{tab_key} {{ display: block !important; position: fixed; left: 0; top: 0; width: 100%; padding: 2em; }}
-            }}
-            </style>
+            print_content = f"""
+            <h2>TIRE REGISTRATION &mdash; {category.upper()}</h2>
+            <table style="margin-bottom:1em;">
+            <tr><td><b>Date:</b></td><td>{reg_date_str}</td></tr>
+            <tr><td><b>Driver:</b></td><td>{driver_name}</td></tr>
+            <tr><td><b>Car #:</b></td><td>{car_number}</td></tr>
+            <tr><td><b>Email:</b></td><td>{team_email}</td></tr>
+            </table>
+            <h3>Registered Tires:</h3>
+            <div style="font-size:14pt;">{tire_list_html}</div>
+            <p><b>Total: {len(tire_nums)} tires registered</b></p>
             """
-            st.markdown(print_html, unsafe_allow_html=True)
+            print_js = print_content.replace("`", "\\`").replace("\n", "")
             bc1, bc2 = st.columns(2)
             with bc1:
-                st.markdown(
-                    f'<button onclick="document.getElementById(\'print_{tab_key}\').style.display=\'block\';window.print();setTimeout(function(){{document.getElementById(\'print_{tab_key}\').style.display=\'none\'}},500)" '
-                    'style="background-color:#4CAF50;color:white;padding:0.5rem 1.5rem;'
-                    'border:none;border-radius:0.5rem;cursor:pointer;font-size:1rem;width:100%"'
-                    '>🖨️ Print Registration List</button>',
-                    unsafe_allow_html=True,
-                )
+                components.html(f"""
+                <button onclick="var w=window.open('','_blank','width=800,height=600');w.document.write('<html><head><title>Print</title></head><body>{print_js}</body></html>');w.document.close();w.print();"
+                style="background-color:#4CAF50;color:white;padding:0.5rem 1.5rem;border:none;border-radius:0.5rem;cursor:pointer;font-size:1rem;width:100%"
+                >\U0001f5a8 Print Registration List</button>
+                """, height=50)
             with bc2:
                 subject = url_quote(f"Tire Registration - {category} - {reg_date_str}")
                 mailto_body = url_quote(body_text)
@@ -112,10 +101,11 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
                     f'<a href="{mailto_link}" style="display:inline-block;background-color:#2196F3;color:white;'
                     'padding:0.5rem 1.5rem;border:none;border-radius:0.5rem;cursor:pointer;font-size:1rem;'
                     'text-decoration:none;text-align:center;width:100%"'
-                    '>📧 Email Registration List</a>',
+                    '>\U0001f4e7 Email Registration List</a>',
                     unsafe_allow_html=True,
                 )
-            st.markdown("---")
+
+    st.markdown("---")
     with st.form(f"reg_{tab_key}_form", clear_on_submit=True):
         st.markdown(f"**Register a Tire for {category}**")
         rc1, rc2 = st.columns(2)
@@ -171,7 +161,6 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
 def render():
     st.header("\U0001f6a2 Tire Inventory")
     tab1, tab2, tab3, tab4 = st.tabs(["View Tires", "Registered Tires", "Add New Tire", "Tire Temp"])
-
     # ==============================================
     # TAB 1 -- View Tires (Inventory)
     # ==============================================
@@ -193,7 +182,6 @@ def render():
             if compound_filt and "compound" in filtered.columns:
                 filtered = filtered[filtered["compound"].str.contains(compound_filt, case=False, na=False)]
             st.dataframe(filtered, use_container_width=True, hide_index=True)
-
             st.divider()
             st.subheader("Quick Stats")
             sc1, sc2, sc3, sc4 = st.columns(4)
@@ -205,7 +193,6 @@ def render():
                 st.metric("Delaware", len(df[df["status"] == "Delaware"]) if "status" in df.columns else 0)
             with sc4:
                 st.metric("Used", len(df[df["status"] == "Used"]) if "status" in df.columns else 0)
-
             # --- Edit Tire ---
             st.divider()
             st.subheader("Edit Tire")
@@ -242,7 +229,6 @@ def render():
                             update_row("tires", row_idx + 2, updated)
                             st.success(f"Tire '{edit_sel}' updated!")
                             st.rerun()
-
             # --- Delete Tire ---
             st.divider()
             st.subheader("Delete Tire")
@@ -262,7 +248,6 @@ def render():
                     st.rerun()
         else:
             st.info("No tires in inventory. Add your first tire below.")
-
     # ==============================================
     # TAB 2 -- Registered Tires
     # ==============================================
@@ -272,7 +257,6 @@ def render():
         reg_df = read_sheet("tire_reg")
         tire_df = read_sheet("tires")
         tire_numbers = tire_df["tire_number"].tolist() if not tire_df.empty and "tire_number" in tire_df.columns else []
-
         # --- Summary metrics ---
         prac_count = 0
         del_count = 0
@@ -298,7 +282,6 @@ def render():
             _reg_tab("Delaware", "\U0001f3c1", reg_df, tire_numbers, "del", tire_df)
         with reg_ser:
             _reg_tab("Series", "\U0001f3c6", reg_df, tire_numbers, "ser", tire_df)
-
     # ==============================================
     # TAB 3 -- Add New Tire
     # ==============================================
@@ -306,7 +289,6 @@ def render():
         chassis_list = get_chassis_list()
         if "scanned_tire_number" not in st.session_state:
             st.session_state["scanned_tire_number"] = ""
-
         # --- Barcode Scanner using camera ---
         with st.expander("\U0001f4f7 Scan Barcode", expanded=False):
             st.caption("Take a photo of the barcode on the tire. The app will read the number automatically.")
@@ -325,7 +307,6 @@ def render():
                     st.error(f"Scanner error: {e}")
         if st.session_state["scanned_tire_number"]:
             st.success(f"Scanned: **{st.session_state['scanned_tire_number']}** -- pre-filled below")
-
         with st.form("add_tire", clear_on_submit=True):
             st.subheader("New Tire Entry")
             c1, c2 = st.columns(2)
@@ -393,7 +374,6 @@ def render():
                         st.success(f"Tire '{tire_number}' added!")
                     st.session_state["scanned_tire_number"] = ""
                     st.rerun()
-
     # ==============================================
     # TAB 4 -- Tire Temp (Camber Analysis)
     # ==============================================
@@ -412,7 +392,6 @@ def render():
                 with tc3:
                     t_out = st.number_input(f"{corner} Outer", min_value=0.0, max_value=500.0, value=0.0, step=1.0, key=f"{corner}_out")
                 temps[corner] = {"inner": t_in, "middle": t_mid, "outer": t_out}
-
         st.divider()
         st.subheader("Camber Analysis Results")
         any_data = any(t["inner"] > 0 or t["outer"] > 0 for t in temps.values())
@@ -446,5 +425,5 @@ def render():
                     with rc2:
                         st.markdown(f"{icon} **{camber_status}**")
                         st.caption(camber_advice)
-                    st.caption(f"Inner: {t_in}\u00b0 | Mid: {t_mid}\u00b0 | Outer: {t_out}\u00b0")
+                        st.caption(f"Inner: {t_in}\u00b0 | Mid: {t_mid}\u00b0 | Outer: {t_out}\u00b0")
                     st.markdown("---")

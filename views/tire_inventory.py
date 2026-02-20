@@ -6,10 +6,10 @@ from utils.gsheet_db import read_sheet, append_row, delete_row, update_row, get_
 
 
 # --- Helper: render a registration category tab ---
-def _reg_tab(category, icon, reg_df, tire_numbers, tab_key):
+def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
     cat_data = reg_df[reg_df["category"] == category] if not reg_df.empty and "category" in reg_df.columns else None
     if cat_data is not None and not cat_data.empty:
-        display_cols = [c for c in ["tire_number", "track_or_series", "notes", "registered_date"] if c in cat_data.columns]
+        display_cols = [c for c in ["tire_number", "track_or_series", "mould_mark", "finish_size", "notes", "registered_date"] if c in cat_data.columns]
         st.dataframe(cat_data[display_cols] if display_cols else cat_data, use_container_width=True, hide_index=True)
         if "track_or_series" in cat_data.columns:
             groups = cat_data["track_or_series"].unique().tolist()
@@ -17,10 +17,15 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key):
                 grp_tires = cat_data[cat_data["track_or_series"] == grp]
                 with st.expander(f"{icon} {grp} ({len(grp_tires)} tires)"):
                     for _, r in grp_tires.iterrows():
-                        tc1, tc2 = st.columns([3, 1])
+                        tc1, tc2, tc3 = st.columns([3, 1, 1])
                         with tc1:
                             st.markdown(f"**{r.get('tire_number', '')}** \u2014 {r.get('notes', '')}")
                         with tc2:
+                            mm = r.get('mould_mark', '')
+                            fs = r.get('finish_size', '')
+                            if mm or fs:
+                                st.caption(f"Mould: {mm} | Size: {fs}")
+                        with tc3:
                             st.caption(r.get("registered_date", ""))
     else:
         st.info(f"No tires registered for {category} yet.")
@@ -37,6 +42,11 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key):
         with rc2:
             loc_name = st.text_input("Track / Series Name", key=f"{tab_key}_loc_name")
             reg_notes = st.text_input("Notes (optional)", key=f"{tab_key}_reg_notes")
+        rc3, rc4 = st.columns(2)
+        with rc3:
+            reg_mould = st.text_input("Mould Mark", key=f"{tab_key}_mould")
+        with rc4:
+            reg_finish = st.text_input("Finish Size", key=f"{tab_key}_finish")
         if st.form_submit_button(f"Register for {category}", type="primary"):
             final_tire = sel_tire if sel_tire else man_tire
             if not final_tire:
@@ -48,6 +58,8 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key):
                     "tire_number": final_tire,
                     "category": category,
                     "track_or_series": loc_name,
+                    "mould_mark": reg_mould,
+                    "finish_size": reg_finish,
                     "notes": reg_notes,
                     "registered_date": timestamp_now(),
                 })
@@ -68,7 +80,6 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key):
             delete_row("tire_reg", sheet_row)
             st.success(f"Registration removed: {del_choice}")
             st.rerun()
-
 
 def render():
     st.header("\U0001f6a2 Tire Inventory")
@@ -95,6 +106,7 @@ def render():
             if compound_filt and "compound" in filtered.columns:
                 filtered = filtered[filtered["compound"].str.contains(compound_filt, case=False, na=False)]
             st.dataframe(filtered, use_container_width=True, hide_index=True)
+
             st.divider()
             st.subheader("Quick Stats")
             sc1, sc2, sc3, sc4 = st.columns(4)
@@ -122,10 +134,12 @@ def render():
                             e_status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"], index=["New", "Practice", "Delaware", "Series", "Used", "Scrapped"].index(row.get("status", "New")) if row.get("status", "New") in ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"] else 0)
                             e_position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"], index=["LF", "RF", "LR", "RR", "Spare"].index(row.get("position", "LF")) if row.get("position", "LF") in ["LF", "RF", "LR", "RR", "Spare"] else 0)
                             e_durometer = st.text_input("Durometer Reading", value=row.get("durometer", ""))
+                            e_mould_mark = st.text_input("Mould Mark", value=row.get("mould_mark", ""))
                         with ec2:
                             e_laps = st.text_input("Laps Run", value=row.get("laps_run", "0"))
                             e_races = st.text_input("Races Run", value=row.get("races_run", "0"))
                             e_circumference = st.text_input("Circumference / Rollout", value=row.get("circumference", ""))
+                            e_finish_size = st.text_input("Finish Size", value=row.get("finish_size", ""))
                         e_notes = st.text_area("Notes", value=row.get("notes", ""))
                         if st.form_submit_button("Update Tire", type="primary"):
                             updated = row.to_dict()
@@ -135,6 +149,8 @@ def render():
                             updated["laps_run"] = e_laps
                             updated["races_run"] = e_races
                             updated["circumference"] = e_circumference
+                            updated["mould_mark"] = e_mould_mark
+                            updated["finish_size"] = e_finish_size
                             updated["notes"] = e_notes
                             update_row("tires", row_idx + 2, updated)
                             st.success(f"Tire '{edit_sel}' updated!")
@@ -148,7 +164,7 @@ def render():
                 if st.button("Delete Selected Tire", type="secondary"):
                     row_idx = df[df["tire_number"] == del_sel].index[0] + 2
                     delete_row("tires", row_idx)
-                                        # Also remove any registrations for this tire
+                    # Also remove any registrations for this tire
                     reg_df = read_sheet("tire_reg")
                     if not reg_df.empty and "tire_number" in reg_df.columns:
                         reg_matches = reg_df[reg_df["tire_number"] == del_sel]
@@ -169,6 +185,7 @@ def render():
         reg_df = read_sheet("tire_reg")
         tire_df = read_sheet("tires")
         tire_numbers = tire_df["tire_number"].tolist() if not tire_df.empty and "tire_number" in tire_df.columns else []
+
         # --- Summary metrics ---
         prac_count = 0
         del_count = 0
@@ -189,11 +206,11 @@ def render():
         st.divider()
         reg_prac, reg_del, reg_ser = st.tabs(["\U0001f3ce Practice", "\U0001f3c1 Delaware", "\U0001f3c6 Series"])
         with reg_prac:
-            _reg_tab("Practice", "\U0001f3ce", reg_df, tire_numbers, "prac")
+            _reg_tab("Practice", "\U0001f3ce", reg_df, tire_numbers, "prac", tire_df)
         with reg_del:
-            _reg_tab("Delaware", "\U0001f3c1", reg_df, tire_numbers, "del")
+            _reg_tab("Delaware", "\U0001f3c1", reg_df, tire_numbers, "del", tire_df)
         with reg_ser:
-            _reg_tab("Series", "\U0001f3c6", reg_df, tire_numbers, "ser")
+            _reg_tab("Series", "\U0001f3c6", reg_df, tire_numbers, "ser", tire_df)
 
     # ==============================================
     # TAB 3 -- Add New Tire
@@ -233,7 +250,7 @@ def render():
                 brand = st.text_input("Brand (e.g. Hoosier)")
                 compound = st.text_input("Compound (e.g. LM20, LM40, D800)")
                 mould_mark = st.text_input("Mould Mark")
-            finish_size = st.text_input("Finish Size")
+                finish_size = st.text_input("Finish Size")
             with c2:
                 position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"])
                 status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"])
@@ -257,7 +274,7 @@ def render():
                         "brand": brand,
                         "compound": compound,
                         "mould_mark": mould_mark,
-                    "finish_size": finish_size,
+                        "finish_size": finish_size,
                         "position": position,
                         "status": status,
                         "assigned_chassis": assigned_chassis,
@@ -277,6 +294,8 @@ def render():
                                 "tire_number": tire_number,
                                 "category": status,
                                 "track_or_series": status,
+                                "mould_mark": mould_mark,
+                                "finish_size": finish_size,
                                 "notes": notes,
                                 "registered_date": timestamp_now(),
                             })
@@ -288,17 +307,14 @@ def render():
                     st.session_state["scanned_tire_number"] = ""
                     st.rerun()
 
-
     # ==============================================
     # TAB 4 -- Tire Temp (Camber Analysis)
     # ==============================================
     with tab4:
         st.subheader("Tire Temperature Analysis")
         st.caption("Enter tire temps (Inner, Middle, Outer) for each corner. The app will analyze camber based on the temperature spread.")
-
         corners = ["LF", "RF", "LR", "RR"]
         temps = {}
-
         for corner in corners:
             with st.expander(f"\U0001f321 {corner} Temps", expanded=True):
                 tc1, tc2, tc3 = st.columns(3)
@@ -312,7 +328,6 @@ def render():
 
         st.divider()
         st.subheader("Camber Analysis Results")
-
         any_data = any(t["inner"] > 0 or t["outer"] > 0 for t in temps.values())
         if not any_data:
             st.info("Enter tire temperatures above to see camber analysis.")
@@ -344,5 +359,5 @@ def render():
                     with rc2:
                         st.markdown(f"{icon} **{camber_status}**")
                         st.caption(camber_advice)
-                        st.caption(f"Inner: {t_in}\u00b0 | Mid: {t_mid}\u00b0 | Outer: {t_out}\u00b0")
+                    st.caption(f"Inner: {t_in}\u00b0 | Mid: {t_mid}\u00b0 | Outer: {t_out}\u00b0")
                     st.markdown("---")

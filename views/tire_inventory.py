@@ -72,26 +72,33 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
             # Build the text
             body_text = _build_tire_list_text(category, tire_nums, driver_name, car_number, team_email, reg_date_str)
             # Print button using components.html so JavaScript executes
-            tire_list_html = "<br>".join([f"{i}. &nbsp; {tn}" for i, tn in enumerate(tire_nums, 1)])
-            print_content = f"""
-            <h2>TIRE REGISTRATION &mdash; {category.upper()}</h2>
-            <table style="margin-bottom:1em;">
-            <tr><td><b>Date:</b></td><td>{reg_date_str}</td></tr>
-            <tr><td><b>Driver:</b></td><td>{driver_name}</td></tr>
-            <tr><td><b>Car #:</b></td><td>{car_number}</td></tr>
-            <tr><td><b>Email:</b></td><td>{team_email}</td></tr>
-            </table>
-            <h3>Registered Tires:</h3>
-            <div style="font-size:14pt;">{tire_list_html}</div>
-            <p><b>Total: {len(tire_nums)} tires registered</b></p>
-            """
-            print_js = print_content.replace("`", "\\`").replace("\n", "")
+            tire_list_items = "".join([f"<li>{tn}</li>" for tn in tire_nums])
+            import html as html_mod
+            safe_cat = html_mod.escape(category.upper())
+            safe_date = html_mod.escape(reg_date_str)
+            safe_driver = html_mod.escape(driver_name)
+            safe_car = html_mod.escape(car_number)
+            safe_email = html_mod.escape(team_email)
             bc1, bc2 = st.columns(2)
             with bc1:
                 components.html(f"""
-                <button onclick="var w=window.open('','_blank','width=800,height=600');w.document.write('<html><head><title>Print</title></head><body>{print_js}</body></html>');w.document.close();w.print();"
-                style="background-color:#4CAF50;color:white;padding:0.5rem 1.5rem;border:none;border-radius:0.5rem;cursor:pointer;font-size:1rem;width:100%"
-                >\U0001f5a8 Print Registration List</button>
+                <button id="printBtn" style="background-color:#4CAF50;color:white;padding:0.5rem 1.5rem;border:none;border-radius:0.5rem;cursor:pointer;font-size:1rem;width:100%">\U0001f5a8 Print Registration List</button>
+                <script>
+                document.getElementById('printBtn').addEventListener('click', function() {{
+                    var w = window.open('', '_blank', 'width=800,height=600');
+                    w.document.write('<html><head><title>Print Tire Registration</title></head><body>');
+                    w.document.write('<h2>TIRE REGISTRATION &mdash; {safe_cat}</h2>');
+                    w.document.write('<table><tr><td><b>Date:</b></td><td>{safe_date}</td></tr>');
+                    w.document.write('<tr><td><b>Driver:</b></td><td>{safe_driver}</td></tr>');
+                    w.document.write('<tr><td><b>Car #:</b></td><td>{safe_car}</td></tr>');
+                    w.document.write('<tr><td><b>Email:</b></td><td>{safe_email}</td></tr></table>');
+                    w.document.write('<h3>Registered Tires:</h3><ol>{tire_list_items}</ol>');
+                    w.document.write('<p><b>Total: {len(tire_nums)} tires registered</b></p>');
+                    w.document.write('</body></html>');
+                    w.document.close();
+                    w.print();
+                }});
+                </script>
                 """, height=50)
             with bc2:
                 subject = url_quote(f"Tire Registration - {category} - {reg_date_str}")

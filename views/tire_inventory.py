@@ -10,9 +10,9 @@ from utils.gsheet_db import read_sheet, append_row, delete_row, update_row, get_
 
 # --- Helper: build tire number list text for print/email ---
 def _build_tire_list_text(category, tire_numbers_list, driver_name, car_number, team_email, reg_date):
-    """Build a plain-text tire registration list."""
+    """Build a plain-text REGISTERED TIRES list."""
     lines = []
-    lines.append(f"TIRE REGISTRATION \u2014 {category.upper()}")
+    lines.append(f"REGISTERED TIRES \u2014 {category.upper()}")
     lines.append("=" * 40)
     lines.append(f"Date:       {reg_date}")
     if driver_name:
@@ -57,10 +57,10 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
     else:
         st.info(f"No tires registered for {category} yet.")
 
-    # --- Print / Email Registration List ---
+    # --- Print / Email Registered Tires List ---
     if cat_data is not None and not cat_data.empty and "tire_number" in cat_data.columns:
         tire_nums = cat_data["tire_number"].tolist()
-        with st.expander(f"\U0001f5a8 Print / Email {category} Registration List", expanded=False):
+        with st.expander(f"\U0001f5a8 Print / Email {category} Registered Tires List", expanded=False):
             pc1, pc2 = st.columns(2)
             with pc1:
                 driver_name = st.text_input("Driver Name", key=f"{tab_key}_driver")
@@ -82,12 +82,12 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
             bc1, bc2 = st.columns(2)
             with bc1:
                 components.html(f"""
-                <button id="printBtn" style="background-color:#4CAF50;color:white;padding:0.5rem 1.5rem;border:none;border-radius:0.5rem;cursor:pointer;font-size:1rem;width:100%">\U0001f5a8 Print Registration List</button>
+                <button id="printBtn" style="background-color:#4CAF50;color:white;padding:0.5rem 1.5rem;border:none;border-radius:0.5rem;cursor:pointer;font-size:1rem;width:100%">\U0001f5a8 Print Registered Tires List</button>
                 <script>
                 document.getElementById('printBtn').addEventListener('click', function() {{
                     var w = window.open('', '_blank', 'width=800,height=600');
-                    w.document.write('<html><head><title>Print Tire Registration</title></head><body>');
-                    w.document.write('<h2>TIRE REGISTRATION &mdash; {safe_cat}</h2>');
+                    w.document.write('<html><head><title>Print REGISTERED TIRES</title></head><body>');
+                    w.document.write('<h2>REGISTERED TIRES &mdash; {safe_cat}</h2>');
                     w.document.write('<table><tr><td><b>Date:</b></td><td>{safe_date}</td></tr>');
                     w.document.write('<tr><td><b>Driver:</b></td><td>{safe_driver}</td></tr>');
                     w.document.write('<tr><td><b>Car #:</b></td><td>{safe_car}</td></tr>');
@@ -101,14 +101,14 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
                 </script>
                 """, height=50)
             with bc2:
-                subject = url_quote(f"Tire Registration - {category} - {reg_date_str}")
+                subject = url_quote(f"REGISTERED TIRES - {category} - {reg_date_str}")
                 mailto_body = url_quote(body_text)
                 mailto_link = f"mailto:{team_email}?subject={subject}&body={mailto_body}"
                 st.markdown(
                     f'<a href="{mailto_link}" style="display:inline-block;background-color:#2196F3;color:white;'
                     'padding:0.5rem 1.5rem;border:none;border-radius:0.5rem;cursor:pointer;font-size:1rem;'
                     'text-decoration:none;text-align:center;width:100%"'
-                    '>\U0001f4e7 Email Registration List</a>',
+                    '>\U0001f4e7 Email Registered Tires List</a>',
                     unsafe_allow_html=True,
                 )
 

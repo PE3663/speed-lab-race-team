@@ -148,6 +148,13 @@ def render():
                 if st.button("Delete Selected Tire", type="secondary"):
                     row_idx = df[df["tire_number"] == del_sel].index[0] + 2
                     delete_row("tires", row_idx)
+                                        # Also remove any registrations for this tire
+                    reg_df = read_sheet("tire_reg")
+                    if not reg_df.empty and "tire_number" in reg_df.columns:
+                        reg_matches = reg_df[reg_df["tire_number"] == del_sel]
+                        if not reg_matches.empty:
+                            for ri in sorted(reg_matches.index.tolist(), reverse=True):
+                                delete_row("tire_reg", ri + 2)
                     st.success(f"Tire '{del_sel}' deleted!")
                     st.rerun()
         else:

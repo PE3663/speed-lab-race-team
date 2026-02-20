@@ -132,7 +132,7 @@ def update_row(sheet_key: str, row_index: int, row_data: dict):
     # Trim to non-empty headers
     trimmed = [h for h in headers if h.strip()]
     row_values = [str(row_data.get(h, "")) for h in trimmed]
-    cell_range = f"A{row_index}:{chr(64 + len(trimmed))}{row_index}"
+    cell_range = f"A{row_index}:{_col_letter(len(trimmed))}{row_index}"
     ws.update(cell_range, [row_values])
 
 
@@ -154,3 +154,89 @@ def get_chassis_list() -> list:
 
 def timestamp_now() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M")
+
+
+def _col_letter(n):
+    """Convert 1-based column number to letter(s): 1->A, 27->AA, etc."""
+    result = ""
+    while n > 0:
+        n, r = divmod(n - 1, 26)
+        result = chr(65 + r) + result
+    return result
+
+
+def update_row_partial(sheet_key: str, row_index: int, row_data: dict):
+    """Update only the specified columns in a row (partial update).
+    Supports more than 26 columns."""
+    ws = get_worksheet(sheet_key)
+    headers = ws.row_values(1)
+    trimmed = [h for h in headers if h.strip()]
+    for key, value in row_data.items():
+        if key in trimmed:
+            col_idx = trimmed.index(key) + 1
+            ws.update_cell(row_index, col_idx, str(value))
+
+
+def find_race_day(date_str: str, track: str):
+    """Find a race day row by date and track.
+    Returns (row_index, row_dict) or (None, None) if not found.
+    row_index is 1-based sheet row number."""
+    ws = get_worksheet("race_day")
+    all_values = ws.get_all_values()
+    if not all_values or len(all_values) < 2:
+        return None, None
+    headers = all_values[0]
+    date_col = None
+    track_col = None
+    for i, h in enumerate(headers):
+        if h.strip().lower() == "date":
+            date_col = i
+        if h.strip().lower() == "track":
+            track_col = i
+    if date_col is None or track_col is None:
+        return None, None
+    for row_num, row in enumerate(all_values[1:], start=2):
+        if len(row) > max(date_col, track_col):
+            if row[date_col].strip() == date_str and row[track_col].strip() == track:
+                row_dict = {}
+                for i, h in enumerate(headers):
+                    if h.strip() and i < len(row):
+                        row_dict[h.strip()] = row[i]
+                return row_num, row_dict
+    return None, None
+
+
+def upsert_race_day(date_str: str, track: str, data: dict):
+    """Create or update a race day row identified by date+track.
+    Returns the 1-based row index."""
+    row_index, existing = find_race_day(date_str, track)
+    if row_index is not None:
+        # Update existing row
+        merged = {}
+        if existing:
+            merged.update(existing)
+        merged.update(data)
+        merged["date"] = date_str
+        merged["track"] = track
+        update_row("race_day", row_index, merged)
+        return row_index
+    else:
+        # Create new row
+        data["date"] = date_str
+        data["track"] = track
+        append_row("race_day", data)
+        # Find the row we just created
+        new_idx, _ = find_race_day(date_str, track)
+        return new_idx
+
+
+def ensure_race_day_headers(all_headers: list):
+    """Make sure the race_day sheet has all required column headers."""
+    ws = get_worksheet("race_day")
+    existing = ws.row_values(1)
+    trimmed = [h for h in existing if h.strip()]
+    missing = [h for h in all_headers if h not in trimmed]
+    if missing:
+        new_headers = trimmed + missing
+        end_col = _col_letter(len(new_headers))
+        ws.update(f"A1:{end_col}1", [new_headers])

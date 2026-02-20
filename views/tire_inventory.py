@@ -232,7 +232,8 @@ def render():
                 )
                 brand = st.text_input("Brand (e.g. Hoosier)")
                 compound = st.text_input("Compound (e.g. LM20, LM40, D800)")
-                size = st.text_input("Size (e.g. 90/11-15)")
+                mould_mark = st.text_input("Mould Mark")
+            finish_size = st.text_input("Finish Size")
             with c2:
                 position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"])
                 status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"])
@@ -255,7 +256,8 @@ def render():
                         "tire_number": tire_number,
                         "brand": brand,
                         "compound": compound,
-                        "size": size,
+                        "mould_mark": mould_mark,
+                    "finish_size": finish_size,
                         "position": position,
                         "status": status,
                         "assigned_chassis": assigned_chassis,

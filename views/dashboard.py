@@ -132,11 +132,10 @@ def _show_session_detail(prefix, label, notes_key, data):
                     break
             if has_temps:
                 break
-
         if has_temps:
             st.markdown("\U0001f321\ufe0f **Tire Temps**")
             for c in _CORNERS:
-                t_in = _vf(data, f"{prefix}_temp_{c}_in")
+                t_in  = _vf(data, f"{prefix}_temp_{c}_in")
                 t_mid = _vf(data, f"{prefix}_temp_{c}_mid")
                 t_out = _vf(data, f"{prefix}_temp_{c}_out")
                 if t_in == 0 and t_mid == 0 and t_out == 0:
@@ -165,40 +164,48 @@ def render():
     st.header("\U0001f3e0 Dashboard")
     st.markdown("Welcome to the **Speed Lab Race Team** setup book and manager.")
 
-    # Quick stats
-    col1, col2, col3, col4 = st.columns(4)
-
+    # ---- Quick stats row ----
     chassis_list = get_chassis_list()
-    with col1:
-        st.metric("Chassis", len(chassis_list))
 
     try:
         tires_df = read_sheet("tires")
-        active_tires = len(tires_df[tires_df["status"] == "In Use"]) if not tires_df.empty and "status" in tires_df.columns else 0
+        active_tires = len(tires_df[tires_df["status"].isin(["New", "Practice", "Delaware", "Series"])]) if not tires_df.empty and "status" in tires_df.columns else 0
         total_tires = len(tires_df) if not tires_df.empty else 0
     except Exception:
         active_tires = 0
         total_tires = 0
+
+    try:
+        maint_df = read_sheet("maintenance")
+        open_tasks = len(maint_df[maint_df["status"].isin(["Open", "In Progress"])]) if not maint_df.empty and "status" in maint_df.columns else 0
+    except Exception:
+        open_tasks = 0
+
+    try:
+        race_df = read_sheet("race_day")
+        total_races = len(race_df) if not race_df.empty else 0
+    except Exception:
+        race_df = None
+        total_races = 0
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        st.metric("Chassis", len(chassis_list))
     with col2:
         st.metric("Active Tires", active_tires)
     with col3:
         st.metric("Total Tires", total_tires)
-
-    try:
-        maint_df = read_sheet("maintenance")
-        due_count = len(maint_df[maint_df["status"] == "Due"]) if not maint_df.empty and "status" in maint_df.columns else 0
-    except Exception:
-        due_count = 0
     with col4:
-        st.metric("Maintenance Due", due_count, delta_color="inverse")
+        st.metric("Race Days", total_races)
+    with col5:
+        st.metric("Open Tasks", open_tasks, delta_color="inverse")
 
     st.divider()
 
-    # Recent race day logs with dropdown detail
+    # ---- Recent race day logs with dropdown detail ----
     st.subheader("\U0001f4cb Recent Race Day Logs")
     try:
-        race_df = read_sheet("race_day")
-        if not race_df.empty:
+        if race_df is not None and not race_df.empty:
             df_display = race_df.iloc[::-1].reset_index(drop=True)
             options = []
             for _, row in df_display.iterrows():
@@ -212,10 +219,11 @@ def render():
                 if feat_val:
                     lbl += f" | Finished: {feat_val}"
                 options.append(lbl)
+
             selected = st.selectbox("Select a race day to view details", options, key="dash_log_select")
             sel_idx = options.index(selected)
             sel_row = df_display.iloc[sel_idx]
-            sel_date = sel_row.get("date", "")
+            sel_date  = sel_row.get("date", "")
             sel_track = sel_row.get("track", "")
             _, full_data = find_race_day(sel_date, sel_track)
             if full_data:
@@ -227,13 +235,15 @@ def render():
     except Exception:
         st.info("No race day logs yet. Connect your Google Sheet to get started.")
 
-    # Quick links
+    # ---- Quick links ----
     st.divider()
     st.subheader("\u26a1 Quick Actions")
-    qc1, qc2, qc3 = st.columns(3)
+    qc1, qc2, qc3, qc4 = st.columns(4)
     with qc1:
         st.markdown("\U0001f527 **Setup Book** \u2014 View and edit chassis setups")
     with qc2:
         st.markdown("\U0001f6de **Tire Inventory** \u2014 Track tire numbers and wear")
     with qc3:
         st.markdown("\U0001f6e0\ufe0f **Maintenance** \u2014 Check upcoming tasks")
+    with qc4:
+        st.markdown("\U0001f3ce\ufe0f **Trackside Tuning** \u2014 Get quick recommendations")

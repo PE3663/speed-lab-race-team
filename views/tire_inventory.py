@@ -113,16 +113,37 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
                 )
 
     st.markdown("---")
+        # --- Barcode Scanner for Registration ---
+    scan_key = f"scanned_reg_{tab_key}"
+    if scan_key not in st.session_state:
+        st.session_state[scan_key] = ""
+    with st.expander("\U0001f4f7 Scan Barcode", expanded=False):
+        st.caption("Take a photo of the barcode on the tire.")
+        cam_img = st.camera_input("Point camera at barcode", key=f"{tab_key}_barcode_cam")
+        if cam_img is not None:
+            try:
+                img = Image.open(cam_img)
+                decoded = pyzbar_decode(img)
+                if decoded:
+                    barcode_val = decoded[0].data.decode("utf-8")
+                    st.session_state[scan_key] = barcode_val
+                    st.success(f"Scanned: **{barcode_val}**")
+                else:
+                    st.warning("No barcode detected. Try again.")
+            except Exception as e:
+                st.error(f"Scanner error: {e}")
+    if st.session_state.get(scan_key):
+        st.success(f"Scanned: **{st.session_state[scan_key]}** -- pre-filled below")
     with st.form(f"reg_{tab_key}_form", clear_on_submit=True):
         st.markdown(f"**Register a Tire for {category}**")
         rc1, rc2 = st.columns(2)
         with rc1:
             if tire_numbers:
                 sel_tire = st.selectbox("Select Tire from Inventory", [""] + tire_numbers, key=f"{tab_key}_tire_inv")
-                man_tire = st.text_input("Or enter tire number manually", key=f"{tab_key}_tire_manual")
+                man_tire = st.text_input("Or enter tire number manually", value=st.session_state.get(scan_key, ""), key=f"{tab_key}_tire_manual")
             else:
                 sel_tire = ""
-                man_tire = st.text_input("Tire Number / Serial", key=f"{tab_key}_tire_manual")
+                man_tire = st.text_input("Tire Number / Serial",  value=st.session_state.get(scan_key, ""),key=f"{tab_key}_tire_manual")
         with rc2:
             loc_name = st.text_input("Track / Series Name", key=f"{tab_key}_loc_name")
             reg_notes = st.text_input("Notes (optional)", key=f"{tab_key}_reg_notes")

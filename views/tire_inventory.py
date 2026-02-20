@@ -1,9 +1,36 @@
 import streamlit as st
 import time
+from urllib.parse import quote as url_quote
+from datetime import date
 from PIL import Image
 from pyzbar.pyzbar import decode as pyzbar_decode
 from utils.gsheet_db import read_sheet, append_row, delete_row, update_row, get_chassis_list, timestamp_now
 
+
+
+# --- Helper: build tire number list text for print/email ---
+def _build_tire_list_text(category, tire_numbers_list, driver_name, car_number, team_email, reg_date):
+    """Build a plain-text tire registration list."""
+    lines = []
+    lines.append(f"TIRE REGISTRATION \u2014 {category.upper()}")
+    lines.append("=" * 40)
+    lines.append(f"Date:        {reg_date}")
+    if driver_name:
+        lines.append(f"Driver:      {driver_name}")
+    if car_number:
+        lines.append(f"Car #:       {car_number}")
+    if team_email:
+        lines.append(f"Team Email:  {team_email}")
+    lines.append("=" * 40)
+    lines.append("")
+    lines.append("Registered Tires:")
+    lines.append("-" * 20)
+    for i, tn in enumerate(tire_numbers_list, 1):
+        lines.append(f"  {i}.  {tn}")
+    lines.append("")
+    lines.append(f"Total: {len(tire_numbers_list)} tires registered")
+    lines.append("=" * 40)
+    return "\n".join(lines)
 
 # --- Helper: render a registration category tab ---
 def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
@@ -29,6 +56,66 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
                             st.caption(r.get("registered_date", ""))
     else:
         st.info(f"No tires registered for {category} yet.")
+
+        # --- Print / Email Registration List ---
+    if cat_data is not None and not cat_data.empty and "tire_number" in cat_data.columns:
+        tire_nums = cat_data["tire_number"].tolist()
+        with st.expander(f"🖨️ Print / Email {category} Registration List", expanded=False):
+            pc1, pc2 = st.columns(2)
+            with pc1:
+                driver_name = st.text_input("Driver Name", key=f"{tab_key}_driver")
+                car_number = st.text_input("Car Number", key=f"{tab_key}_car_num")
+            with pc2:
+                team_email = st.text_input("Team Email", key=f"{tab_key}_email")
+                reg_date = st.date_input("Date", value=date.today(), key=f"{tab_key}_reg_date")
+            reg_date_str = str(reg_date)
+            # Build the text
+            body_text = _build_tire_list_text(category, tire_nums, driver_name, car_number, team_email, reg_date_str)
+            # Print button — renders hidden div and prints it
+            tire_list_html = "<br>".join([f"{i}. &nbsp; {tn}" for i, tn in enumerate(tire_nums, 1)])
+            print_html = f"""
+            <div id="print_{tab_key}" style="display:none;">
+                <h2>TIRE REGISTRATION &mdash; {category.upper()}</h2>
+                <table style="margin-bottom:1em;">
+                    <tr><td><b>Date:</b></td><td id="p_{tab_key}_date">{reg_date_str}</td></tr>
+                    <tr><td><b>Driver:</b></td><td id="p_{tab_key}_driver">{driver_name}</td></tr>
+                    <tr><td><b>Car #:</b></td><td id="p_{tab_key}_car">{car_number}</td></tr>
+                    <tr><td><b>Email:</b></td><td id="p_{tab_key}_email">{team_email}</td></tr>
+                </table>
+                <h3>Registered Tires:</h3>
+                <div style="font-size:14pt;">{tire_list_html}</div>
+                <p><b>Total: {len(tire_nums)} tires registered</b></p>
+            </div>
+            <style>
+            @media print {{
+                body * {{ visibility: hidden !important; }}
+                #print_{tab_key}, #print_{tab_key} * {{ visibility: visible !important; }}
+                #print_{tab_key} {{ display: block !important; position: fixed; left: 0; top: 0; width: 100%; padding: 2em; }}
+            }}
+            </style>
+            """
+            st.markdown(print_html, unsafe_allow_html=True)
+            bc1, bc2 = st.columns(2)
+            with bc1:
+                st.markdown(
+                    f'<button onclick="document.getElementById(\'print_{tab_key}\').style.display=\'block\';window.print();setTimeout(function(){{document.getElementById(\'print_{tab_key}\').style.display=\'none\'}},500)" '
+                    'style="background-color:#4CAF50;color:white;padding:0.5rem 1.5rem;'
+                    'border:none;border-radius:0.5rem;cursor:pointer;font-size:1rem;width:100%"'
+                    '>🖨️ Print Registration List</button>',
+                    unsafe_allow_html=True,
+                )
+            with bc2:
+                subject = url_quote(f"Tire Registration - {category} - {reg_date_str}")
+                mailto_body = url_quote(body_text)
+                mailto_link = f"mailto:{team_email}?subject={subject}&body={mailto_body}"
+                st.markdown(
+                    f'<a href="{mailto_link}" style="display:inline-block;background-color:#2196F3;color:white;'
+                    'padding:0.5rem 1.5rem;border:none;border-radius:0.5rem;cursor:pointer;font-size:1rem;'
+                    'text-decoration:none;text-align:center;width:100%"'
+                    '>📧 Email Registration List</a>',
+                    unsafe_allow_html=True,
+                )
+            st.markdown("---")
     with st.form(f"reg_{tab_key}_form", clear_on_submit=True):
         st.markdown(f"**Register a Tire for {category}**")
         rc1, rc2 = st.columns(2)

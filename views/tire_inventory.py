@@ -72,7 +72,7 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key):
 
 def render():
     st.header("\U0001f6a2 Tire Inventory")
-    tab1, tab2, tab3 = st.tabs(["View Tires", "Registered Tires", "Add New Tire"])
+    tab1, tab2, tab3, tab4 = st.tabs(["View Tires", "Registered Tires", "Add New Tire", "Tire Temp"])
 
     # ==============================================
     # TAB 1 -- View Tires (Inventory)
@@ -287,3 +287,62 @@ def render():
                         st.success(f"Tire '{tire_number}' added!")
                     st.session_state["scanned_tire_number"] = ""
                     st.rerun()
+
+
+    # ==============================================
+    # TAB 4 -- Tire Temp (Camber Analysis)
+    # ==============================================
+    with tab4:
+        st.subheader("Tire Temperature Analysis")
+        st.caption("Enter tire temps (Inner, Middle, Outer) for each corner. The app will analyze camber based on the temperature spread.")
+
+        corners = ["LF", "RF", "LR", "RR"]
+        temps = {}
+
+        for corner in corners:
+            with st.expander(f"\U0001f321 {corner} Temps", expanded=True):
+                tc1, tc2, tc3 = st.columns(3)
+                with tc1:
+                    t_in = st.number_input(f"{corner} Inner", min_value=0.0, max_value=500.0, value=0.0, step=1.0, key=f"{corner}_in")
+                with tc2:
+                    t_mid = st.number_input(f"{corner} Middle", min_value=0.0, max_value=500.0, value=0.0, step=1.0, key=f"{corner}_mid")
+                with tc3:
+                    t_out = st.number_input(f"{corner} Outer", min_value=0.0, max_value=500.0, value=0.0, step=1.0, key=f"{corner}_out")
+                temps[corner] = {"inner": t_in, "middle": t_mid, "outer": t_out}
+
+        st.divider()
+        st.subheader("Camber Analysis Results")
+
+        any_data = any(t["inner"] > 0 or t["outer"] > 0 for t in temps.values())
+        if not any_data:
+            st.info("Enter tire temperatures above to see camber analysis.")
+        else:
+            for corner in corners:
+                t = temps[corner]
+                t_in = t["inner"]
+                t_out = t["outer"]
+                t_mid = t["middle"]
+                if t_in == 0 and t_out == 0:
+                    continue
+                camber_delta = t_in - t_out
+                if camber_delta > 10:
+                    camber_status = "Too much negative camber"
+                    camber_advice = "Reduce negative camber on this corner."
+                    icon = "\u26a0\ufe0f"
+                elif camber_delta < -10:
+                    camber_status = "Not enough negative camber"
+                    camber_advice = "Add negative camber or increase roll resistance on this corner."
+                    icon = "\u26a0\ufe0f"
+                else:
+                    camber_status = "Camber OK"
+                    camber_advice = "Camber close; adjust only for fine balance."
+                    icon = "\u2705"
+                with st.container():
+                    rc1, rc2 = st.columns([1, 3])
+                    with rc1:
+                        st.metric(f"{corner} Delta", f"{camber_delta:+.1f}\u00b0")
+                    with rc2:
+                        st.markdown(f"{icon} **{camber_status}**")
+                        st.caption(camber_advice)
+                        st.caption(f"Inner: {t_in}\u00b0 | Mid: {t_mid}\u00b0 | Outer: {t_out}\u00b0")
+                    st.markdown("---")

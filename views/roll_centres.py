@@ -283,6 +283,240 @@ def _draw_rc_diagram(front_rc, rear_rc, roll_deg=0.0, dive_deg=0.0):
     return fig
 
 
+def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
+                       uca_inner_h, uca_outer_h, half_track, front_rc):
+    """Draw front-view instant centre construction looking from behind."""
+    bg = "#0e1117"
+    card_bg = "#1a1e2e"
+    ground_color = "#3a3f4b"
+    lca_color = "#00d4ff"
+    uca_color = "#ff6b35"
+    ic_color = "#ffd700"
+    rc_color = "#00ff88"
+    text_color = "#e0e0e0"
+    grid_color = "#2a2e3a"
+    tire_color = "#555555"
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    fig.patch.set_facecolor(bg)
+    ax.set_facecolor(card_bg)
+
+    # Ground line
+    ax.axhline(y=0, color=ground_color, linewidth=2.5, zorder=1)
+
+    # Grid
+    max_h = max(uca_inner_h, uca_outer_h, 20) + 5
+    for h in range(0, int(max_h) + 5, 5):
+        if h > 0:
+            ax.axhline(y=h, color=grid_color, linewidth=0.5,
+                       linestyle="--", alpha=0.3, zorder=0)
+
+    # Centreline
+    ax.axvline(x=0, color=grid_color, linewidth=1,
+               linestyle="-.", alpha=0.5, zorder=1)
+    ax.text(0.5, max_h - 1, "CL", fontsize=8, color=grid_color,
+            ha="left", va="top", fontstyle="italic", zorder=6)
+
+    # --- Right side geometry (mirror for visual) ---
+    # Inner pivots (frame side, near centreline)
+    lca_inner_x = 4
+    uca_inner_x = 4
+    # Outer pivots (wheel side)
+    lca_outer_x = half_track
+    uca_outer_x = half_track
+
+    # Draw tires (simplified rectangles)
+    tire_w = 4
+    tire_h = 10
+    tire_x = half_track - tire_w / 2
+    tire = patches.FancyBboxPatch(
+        (tire_x, 0), tire_w, tire_h,
+        boxstyle="round,pad=0.5",
+        facecolor=tire_color, edgecolor="#777",
+        alpha=0.5, linewidth=1.5, zorder=2
+    )
+    ax.add_patch(tire)
+    # Left tire (mirrored)
+    tire_l = patches.FancyBboxPatch(
+        (-tire_x - tire_w, 0), tire_w, tire_h,
+        boxstyle="round,pad=0.5",
+        facecolor=tire_color, edgecolor="#777",
+        alpha=0.5, linewidth=1.5, zorder=2
+    )
+    ax.add_patch(tire_l)
+
+    # Draw frame/chassis box
+    frame_w = lca_inner_x * 2 + 4
+    frame_h = uca_inner_h - lca_inner_h + 4
+    frame_x = -frame_w / 2
+    frame_y = lca_inner_h - 2
+    frame = patches.FancyBboxPatch(
+        (frame_x, frame_y), frame_w, frame_h,
+        boxstyle="round,pad=1",
+        facecolor="#cc0000", edgecolor="#ff3333",
+        alpha=0.2, linewidth=1.5, zorder=2
+    )
+    ax.add_patch(frame)
+
+    # --- LCA line (right side) ---
+    ax.plot([lca_inner_x, lca_outer_x],
+            [lca_inner_h, lca_outer_h],
+            color=lca_color, linewidth=2.5, zorder=4,
+            label="LCA")
+    ax.plot(lca_inner_x, lca_inner_h, "o", color=lca_color,
+            markersize=8, zorder=5, markeredgecolor="white", markeredgewidth=1)
+    ax.plot(lca_outer_x, lca_outer_h, "o", color=lca_color,
+            markersize=8, zorder=5, markeredgecolor="white", markeredgewidth=1)
+
+    # --- UCA line (right side) ---
+    ax.plot([uca_inner_x, uca_outer_x],
+            [uca_inner_h, uca_outer_h],
+            color=uca_color, linewidth=2.5, zorder=4,
+            label="UCA")
+    ax.plot(uca_inner_x, uca_inner_h, "o", color=uca_color,
+            markersize=8, zorder=5, markeredgecolor="white", markeredgewidth=1)
+    ax.plot(uca_outer_x, uca_outer_h, "o", color=uca_color,
+            markersize=8, zorder=5, markeredgecolor="white", markeredgewidth=1)
+
+    # --- LCA line (left side, mirrored) ---
+    ax.plot([-lca_inner_x, -lca_outer_x],
+            [lca_inner_h, lca_outer_h],
+            color=lca_color, linewidth=2.5, alpha=0.4, zorder=4)
+    ax.plot(-lca_inner_x, lca_inner_h, "o", color=lca_color,
+            markersize=8, alpha=0.4, zorder=5)
+    ax.plot(-lca_outer_x, lca_outer_h, "o", color=lca_color,
+            markersize=8, alpha=0.4, zorder=5)
+
+    # --- UCA line (left side, mirrored) ---
+    ax.plot([-uca_inner_x, -uca_outer_x],
+            [uca_inner_h, uca_outer_h],
+            color=uca_color, linewidth=2.5, alpha=0.4, zorder=4)
+    ax.plot(-uca_inner_x, uca_inner_h, "o", color=uca_color,
+            markersize=8, alpha=0.4, zorder=5)
+    ax.plot(-uca_outer_x, uca_outer_h, "o", color=uca_color,
+            markersize=8, alpha=0.4, zorder=5)
+
+    # --- Find Instant Centre (extend LCA and UCA lines inward) ---
+    lca_dx = lca_outer_x - lca_inner_x
+    lca_dy = lca_outer_h - lca_inner_h
+    uca_dx = uca_outer_x - uca_inner_x
+    uca_dy = uca_outer_h - uca_inner_h
+
+    # Line intersection: parametric form
+    # LCA: P = (lca_inner_x, lca_inner_h) + t*(lca_dx, lca_dy)
+    # UCA: P = (uca_inner_x, uca_inner_h) + s*(uca_dx, uca_dy)
+    denom = lca_dx * uca_dy - lca_dy * uca_dx
+    ic_x = ic_y = None
+    if abs(denom) > 1e-9:
+        t = ((uca_inner_x - lca_inner_x) * uca_dy -
+             (uca_inner_h - lca_inner_h) * uca_dx) / denom
+        ic_x = lca_inner_x + t * lca_dx
+        ic_y = lca_inner_h + t * lca_dy
+
+    if ic_x is not None:
+        # Dashed extension lines from arms to IC
+        ax.plot([lca_inner_x, ic_x], [lca_inner_h, ic_y],
+                color=lca_color, linewidth=1, linestyle="--",
+                alpha=0.5, zorder=3)
+        ax.plot([uca_inner_x, ic_x], [uca_inner_h, ic_y],
+                color=uca_color, linewidth=1, linestyle="--",
+                alpha=0.5, zorder=3)
+
+        # IC marker
+        ax.plot(ic_x, ic_y, "D", color=ic_color, markersize=12,
+                zorder=6, markeredgecolor="white", markeredgewidth=1.5)
+        ax.annotate(
+            f"IC\n({ic_x:.1f}, {ic_y:.1f})",
+            xy=(ic_x, ic_y),
+            xytext=(ic_x - 8, ic_y + 3),
+            fontsize=8, fontweight="bold", color=ic_color,
+            ha="center", va="bottom",
+            arrowprops=dict(arrowstyle="->", color=ic_color, lw=1),
+            zorder=7,
+            bbox=dict(boxstyle="round,pad=0.3", facecolor=card_bg,
+                      edgecolor=ic_color, alpha=0.85)
+        )
+
+        # --- Line from tire contact patch to IC ---
+        contact_x = half_track
+        contact_y = 0
+        ax.plot([contact_x, ic_x], [contact_y, ic_y],
+                color=rc_color, linewidth=1.5, linestyle="-.",
+                alpha=0.7, zorder=4)
+
+        # Extend line from contact patch through IC to centreline (x=0)
+        line_dx = ic_x - contact_x
+        line_dy = ic_y - contact_y
+        if abs(line_dx) > 1e-9:
+            t_cl = (0 - contact_x) / line_dx
+            rc_y = contact_y + t_cl * line_dy
+        else:
+            rc_y = front_rc
+
+        ax.plot([contact_x, 0], [contact_y, rc_y],
+                color=rc_color, linewidth=2, linestyle="-",
+                alpha=0.8, zorder=4)
+
+        # RC marker on centreline
+        ax.plot(0, rc_y, "o", color=rc_color, markersize=14,
+                zorder=6, markeredgecolor="white", markeredgewidth=2)
+        ax.annotate(
+            f"ROLL CENTRE\n{front_rc:.3f}\"",
+            xy=(0, rc_y),
+            xytext=(-12, rc_y + 4),
+            fontsize=9, fontweight="bold", color=rc_color,
+            ha="center", va="bottom",
+            arrowprops=dict(arrowstyle="->", color=rc_color,
+                            lw=1.2, connectionstyle="arc3,rad=0.2"),
+            zorder=7,
+            bbox=dict(boxstyle="round,pad=0.3", facecolor=card_bg,
+                      edgecolor=rc_color, alpha=0.85)
+        )
+    else:
+        # Parallel arms - RC at ground
+        ax.plot(0, 0, "o", color=rc_color, markersize=14,
+                zorder=6, markeredgecolor="white", markeredgewidth=2)
+        ax.text(-12, 2, f"RC at ground (parallel arms)",
+                fontsize=8, color=rc_color, ha="center", zorder=7)
+
+    # Contact patch markers
+    ax.plot(half_track, 0, "^", color="#aaa", markersize=10,
+            zorder=5, markeredgecolor="white", markeredgewidth=1)
+    ax.plot(-half_track, 0, "^", color="#aaa", markersize=10,
+            zorder=5, markeredgecolor="white", markeredgewidth=1)
+
+    # Labels
+    ax.text(half_track, -1.5, "Contact\nPatch", fontsize=7,
+            color="#aaa", ha="center", va="top", zorder=6)
+    ax.text(-half_track, -1.5, "Contact\nPatch", fontsize=7,
+            color="#aaa", ha="center", va="top", zorder=6)
+    ax.text(0, -3.5, "VIEW: Looking from behind front wheels",
+            fontsize=8, color=text_color, ha="center",
+            fontstyle="italic", zorder=6)
+
+    # Legend
+    ax.legend(loc="upper right", facecolor=card_bg,
+              edgecolor=grid_color, labelcolor=text_color, fontsize=8)
+
+    margin = 8
+    ax.set_xlim(-half_track - margin, half_track + margin)
+    y_lo = -5
+    y_hi_val = max_h + 5
+    if ic_y is not None:
+        y_hi_val = max(y_hi_val, ic_y + 8)
+    ax.set_ylim(y_lo, y_hi_val)
+    ax.set_aspect("equal")
+    ax.set_xlabel("Lateral Position (inches)", color=text_color, fontsize=8)
+    ax.set_ylabel("Height (inches)", color=text_color, fontsize=8)
+    ax.set_title("Front View — Instant Centre Construction",
+                 color=text_color, fontsize=11, fontweight="bold")
+    ax.tick_params(colors=text_color, labelsize=7)
+    for spine in ax.spines.values():
+        spine.set_color(grid_color)
+    plt.tight_layout()
+    return fig
+
+
 def render():
     st.title("📐 Roll Centres")
     st.caption("Calculate and track front and rear roll centre heights for each chassis.")
@@ -471,6 +705,21 @@ def render():
                                roll_deg=roll_deg, dive_deg=dive_deg)
         st.pyplot(fig)
         plt.close(fig)
+
+                # --- Front View: Instant Centre Construction ---
+        st.divider()
+        st.markdown("### Front View — Instant Centre")
+        st.caption(
+            "Looking from behind the front wheels. Shows the LCA / UCA "
+            "extended to find the Instant Centre, then a line from the "
+            "contact patch through the IC to the car centreline to find the RC."
+        )
+        fig_fv = _draw_front_view_rc(
+            f_lca_len, f_uca_len, f_lca_inner_h, f_lca_outer_h,
+            f_uca_inner_h, f_uca_outer_h, f_spindle_h, front_rc
+        )
+        st.pyplot(fig_fv)
+        plt.close(fig_fv)
 
         st.divider()
 

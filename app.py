@@ -28,11 +28,11 @@ def check_password():
 
     st.markdown(
         """
-        <div style="text-align:center; padding-top:60px;">
-        <h1 style="color:#cc0000;">🏁 Speed Lab</h1>
-        <p style="color:#888; font-size:1.1rem;">Setup Book & Team Manager</p>
-        </div>
-        """,
+<div style="text-align:center; padding-top:60px;">
+<h1 style="color:#cc0000;">🏁 Speed Lab</h1>
+<p style="color:#888; font-size:1.1rem;">Setup Book & Team Manager</p>
+</div>
+""",
         unsafe_allow_html=True,
     )
     col1, col2, col3 = st.columns([1, 1.5, 1])
@@ -64,10 +64,11 @@ with st.sidebar:
             "🚗 Chassis Profiles",
             "🔧 Setup Book",
             "📋 Race Day Log",
-            "🛞 Tire Inventory",
+            "🛷 Tire Inventory",
             "📦 Parts Inventory",
             "🛠️ Maintenance",
             "🎯 Trackside Tuning",
+            "📐 Roll Centres",
         ],
         label_visibility="collapsed",
     )
@@ -90,7 +91,7 @@ elif page == "🔧 Setup Book":
 elif page == "📋 Race Day Log":
     from views import race_day_log
     race_day_log.render()
-elif page == "🛞 Tire Inventory":
+elif page == "🛷 Tire Inventory":
     from views import tire_inventory
     tire_inventory.render()
 elif page == "📦 Parts Inventory":
@@ -102,3 +103,6 @@ elif page == "🛠️ Maintenance":
 elif page == "🎯 Trackside Tuning":
     from views import trackside_tuning
     trackside_tuning.render()
+elif page == "📐 Roll Centres":
+    from views import roll_centres
+    roll_centres.render()

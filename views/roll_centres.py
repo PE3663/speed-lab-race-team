@@ -100,24 +100,21 @@ def _draw_rc_diagram(front_rc, rear_rc):
     text_color = "#e0e0e0"
     grid_color = "#2a2e3a"
 
-    wheelbase = 108  # inches (typical late model)
+    wheelbase = 108
     fig, ax = plt.subplots(figsize=(10, 4.5))
     fig.patch.set_facecolor(bg)
     ax.set_facecolor(card_bg)
 
-    # Ground line
     ax.axhline(y=0, color=ground_color, linewidth=2.5, zorder=1)
     ax.fill_between([-15, wheelbase + 15], -2, 0,
                     color=ground_color, alpha=0.15, zorder=0)
 
-    # Grid
     max_h = max(abs(front_rc), abs(rear_rc), 10) + 5
     for h in range(0, int(max_h) + 5, 5):
         if h > 0:
             ax.axhline(y=h, color=grid_color, linewidth=0.5,
                        linestyle="--", alpha=0.4, zorder=0)
 
-    # Wheels
     wheel_r = 5
     for wx in [0, wheelbase]:
         circle = plt.Circle((wx, wheel_r), wheel_r,
@@ -127,7 +124,6 @@ def _draw_rc_diagram(front_rc, rear_rc):
                            fill=True, color="#444", linewidth=1, zorder=3)
         ax.add_patch(inner)
 
-    # Car body silhouette
     body_y = wheel_r * 2
     body = patches.FancyBboxPatch(
         (-5, body_y), wheelbase + 10, 10,
@@ -137,17 +133,14 @@ def _draw_rc_diagram(front_rc, rear_rc):
     )
     ax.add_patch(body)
 
-    # Roll centre markers
     ax.plot(0, front_rc, "o", color=front_color, markersize=14,
             zorder=5, markeredgecolor="white", markeredgewidth=1.5)
     ax.plot(wheelbase, rear_rc, "o", color=rear_color, markersize=14,
             zorder=5, markeredgecolor="white", markeredgewidth=1.5)
 
-    # Roll axis line
     ax.plot([0, wheelbase], [front_rc, rear_rc],
             color=axis_color, linewidth=2.5, linestyle="-",
             zorder=4, alpha=0.9)
-    # Dashed extension
     extend = 15
     if wheelbase > 0:
         slope = (rear_rc - front_rc) / wheelbase
@@ -159,13 +152,11 @@ def _draw_rc_diagram(front_rc, rear_rc):
                 color=axis_color, linewidth=1, linestyle=":",
                 alpha=0.4, zorder=4)
 
-    # Vertical reference lines from ground to RC
     ax.plot([0, 0], [0, front_rc], color=front_color,
             linewidth=1.2, linestyle="--", alpha=0.5, zorder=4)
     ax.plot([wheelbase, wheelbase], [0, rear_rc], color=rear_color,
             linewidth=1.2, linestyle="--", alpha=0.5, zorder=4)
 
-    # Labels
     f_offset = 2.5 if front_rc >= 0 else -3.5
     r_offset = 2.5 if rear_rc >= 0 else -3.5
     ax.annotate(
@@ -192,10 +183,8 @@ def _draw_rc_diagram(front_rc, rear_rc):
                   edgecolor=rear_color, alpha=0.85)
     )
 
-    # Roll axis label at midpoint
     mid_x = wheelbase / 2
     mid_y = (front_rc + rear_rc) / 2
-    angle_deg = math.degrees(math.atan2(rear_rc - front_rc, wheelbase))
     ax.text(
         mid_x, mid_y + 3,
         f"ROLL AXIS  ({abs(rear_rc - front_rc):.3f}\" diff)",
@@ -206,7 +195,6 @@ def _draw_rc_diagram(front_rc, rear_rc):
         zorder=6
     )
 
-    # Axis labels
     ax.text(0, -3.5, "FRONT", fontsize=9, color=text_color,
             ha="center", fontweight="bold", zorder=6)
     ax.text(wheelbase, -3.5, "REAR", fontsize=9, color=text_color,
@@ -256,18 +244,42 @@ def render():
         st.caption("Double A-Arm")
         f1, f2, f3 = st.columns(3)
         with f1:
-            f_lca_len = st.number_input("LCA Length (in)", min_value=0.0, value=12.0, step=0.125, key="f_lca_len")
-            f_uca_len = st.number_input("UCA Length (in)", min_value=0.0, value=10.0, step=0.125, key="f_uca_len")
+            f_lca_len = st.number_input(
+                "LCA Length (in)", min_value=0.0, value=12.0, step=0.125,
+                key="f_lca_len",
+                help="Length of the lower control arm from inner pivot (frame) to outer ball joint (spindle)"
+            )
+            f_uca_len = st.number_input(
+                "UCA Length (in)", min_value=0.0, value=10.0, step=0.125,
+                key="f_uca_len",
+                help="Length of the upper control arm from inner pivot (frame) to outer ball joint (spindle)"
+            )
         with f2:
-            f_lca_inner_h = st.number_input("LCA Inner Height (in)", value=6.0, step=0.125, key="f_lca_inner_h")
-            f_lca_outer_h = st.number_input("LCA Outer Height (in)", value=5.5, step=0.125, key="f_lca_outer_h")
+            f_lca_inner_h = st.number_input(
+                "LCA Inner Height (in)", value=6.0, step=0.125,
+                key="f_lca_inner_h",
+                help="Height of the LCA frame-side pivot point measured from the ground"
+            )
+            f_lca_outer_h = st.number_input(
+                "LCA Outer Height (in)", value=5.5, step=0.125,
+                key="f_lca_outer_h",
+                help="Height of the LCA spindle-side ball joint measured from the ground"
+            )
         with f3:
-            f_uca_inner_h = st.number_input("UCA Inner Height (in)", value=14.0, step=0.125, key="f_uca_inner_h")
-            f_uca_outer_h = st.number_input("UCA Outer Height (in)", value=13.0, step=0.125, key="f_uca_outer_h")
+            f_uca_inner_h = st.number_input(
+                "UCA Inner Height (in)", value=14.0, step=0.125,
+                key="f_uca_inner_h",
+                help="Height of the UCA frame-side pivot point measured from the ground"
+            )
+            f_uca_outer_h = st.number_input(
+                "UCA Outer Height (in)", value=13.0, step=0.125,
+                key="f_uca_outer_h",
+                help="Height of the UCA spindle-side ball joint measured from the ground"
+            )
         f_spindle_h = st.number_input(
             "Front Track Half-Width / Spindle Offset (in)",
             min_value=1.0, value=30.0, step=0.5, key="f_spindle_h",
-            help="Half the front track width."
+            help="Half the front track width. Distance from car centreline to the centre of the tire contact patch."
         )
         front_rc = _calc_front_rc_height(
             f_lca_len, f_uca_len,

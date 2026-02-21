@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import math
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from utils.gsheet_db import (
     read_sheet, append_row, delete_row, update_row,
     get_chassis_list, timestamp_now, _col_letter, get_worksheet
@@ -85,26 +87,163 @@ def _calc_rear_rc_height(upper_frame_h, upper_axle_h,
         return 0.0
 
 
+def _draw_rc_diagram(front_rc, rear_rc):
+    """Draw a side-view roll centre diagram with car silhouette."""
+    bg = "#0e1117"
+    card_bg = "#1a1e2e"
+    ground_color = "#3a3f4b"
+    car_color = "#cc0000"
+    car_outline = "#ff3333"
+    front_color = "#00d4ff"
+    rear_color = "#ff6b35"
+    axis_color = "#ffd700"
+    text_color = "#e0e0e0"
+    grid_color = "#2a2e3a"
+
+    wheelbase = 108  # inches (typical late model)
+    fig, ax = plt.subplots(figsize=(10, 4.5))
+    fig.patch.set_facecolor(bg)
+    ax.set_facecolor(card_bg)
+
+    # Ground line
+    ax.axhline(y=0, color=ground_color, linewidth=2.5, zorder=1)
+    ax.fill_between([-15, wheelbase + 15], -2, 0,
+                    color=ground_color, alpha=0.15, zorder=0)
+
+    # Grid
+    max_h = max(abs(front_rc), abs(rear_rc), 10) + 5
+    for h in range(0, int(max_h) + 5, 5):
+        if h > 0:
+            ax.axhline(y=h, color=grid_color, linewidth=0.5,
+                       linestyle="--", alpha=0.4, zorder=0)
+
+    # Wheels
+    wheel_r = 5
+    for wx in [0, wheelbase]:
+        circle = plt.Circle((wx, wheel_r), wheel_r,
+                            fill=False, color="#666", linewidth=2, zorder=3)
+        ax.add_patch(circle)
+        inner = plt.Circle((wx, wheel_r), 2.5,
+                           fill=True, color="#444", linewidth=1, zorder=3)
+        ax.add_patch(inner)
+
+    # Car body silhouette
+    body_y = wheel_r * 2
+    body = patches.FancyBboxPatch(
+        (-5, body_y), wheelbase + 10, 10,
+        boxstyle="round,pad=2",
+        facecolor=car_color, edgecolor=car_outline,
+        alpha=0.25, linewidth=1.5, zorder=2
+    )
+    ax.add_patch(body)
+
+    # Roll centre markers
+    ax.plot(0, front_rc, "o", color=front_color, markersize=14,
+            zorder=5, markeredgecolor="white", markeredgewidth=1.5)
+    ax.plot(wheelbase, rear_rc, "o", color=rear_color, markersize=14,
+            zorder=5, markeredgecolor="white", markeredgewidth=1.5)
+
+    # Roll axis line
+    ax.plot([0, wheelbase], [front_rc, rear_rc],
+            color=axis_color, linewidth=2.5, linestyle="-",
+            zorder=4, alpha=0.9)
+    # Dashed extension
+    extend = 15
+    if wheelbase > 0:
+        slope = (rear_rc - front_rc) / wheelbase
+        ax.plot([-extend, 0], [front_rc - slope * extend, front_rc],
+                color=axis_color, linewidth=1, linestyle=":",
+                alpha=0.4, zorder=4)
+        ax.plot([wheelbase, wheelbase + extend],
+                [rear_rc, rear_rc + slope * extend],
+                color=axis_color, linewidth=1, linestyle=":",
+                alpha=0.4, zorder=4)
+
+    # Vertical reference lines from ground to RC
+    ax.plot([0, 0], [0, front_rc], color=front_color,
+            linewidth=1.2, linestyle="--", alpha=0.5, zorder=4)
+    ax.plot([wheelbase, wheelbase], [0, rear_rc], color=rear_color,
+            linewidth=1.2, linestyle="--", alpha=0.5, zorder=4)
+
+    # Labels
+    f_offset = 2.5 if front_rc >= 0 else -3.5
+    r_offset = 2.5 if rear_rc >= 0 else -3.5
+    ax.annotate(
+        f"FRONT RC\n{front_rc:.3f}\"",
+        xy=(0, front_rc), xytext=(-12, front_rc + f_offset),
+        fontsize=9, fontweight="bold", color=front_color,
+        ha="center", va="bottom",
+        arrowprops=dict(arrowstyle="->", color=front_color,
+                        lw=1.2, connectionstyle="arc3,rad=0.2"),
+        zorder=6,
+        bbox=dict(boxstyle="round,pad=0.3", facecolor=card_bg,
+                  edgecolor=front_color, alpha=0.85)
+    )
+    ax.annotate(
+        f"REAR RC\n{rear_rc:.3f}\"",
+        xy=(wheelbase, rear_rc),
+        xytext=(wheelbase + 12, rear_rc + r_offset),
+        fontsize=9, fontweight="bold", color=rear_color,
+        ha="center", va="bottom",
+        arrowprops=dict(arrowstyle="->", color=rear_color,
+                        lw=1.2, connectionstyle="arc3,rad=-0.2"),
+        zorder=6,
+        bbox=dict(boxstyle="round,pad=0.3", facecolor=card_bg,
+                  edgecolor=rear_color, alpha=0.85)
+    )
+
+    # Roll axis label at midpoint
+    mid_x = wheelbase / 2
+    mid_y = (front_rc + rear_rc) / 2
+    angle_deg = math.degrees(math.atan2(rear_rc - front_rc, wheelbase))
+    ax.text(
+        mid_x, mid_y + 3,
+        f"ROLL AXIS  ({abs(rear_rc - front_rc):.3f}\" diff)",
+        fontsize=8, color=axis_color, ha="center", va="bottom",
+        fontstyle="italic", fontweight="bold",
+        bbox=dict(boxstyle="round,pad=0.25", facecolor=card_bg,
+                  edgecolor=axis_color, alpha=0.7),
+        zorder=6
+    )
+
+    # Axis labels
+    ax.text(0, -3.5, "FRONT", fontsize=9, color=text_color,
+            ha="center", fontweight="bold", zorder=6)
+    ax.text(wheelbase, -3.5, "REAR", fontsize=9, color=text_color,
+            ha="center", fontweight="bold", zorder=6)
+    ax.text(-15, -0.3, "GROUND", fontsize=7, color=ground_color,
+            ha="left", va="top", fontstyle="italic", zorder=6)
+
+    ax.set_xlim(-25, wheelbase + 25)
+    y_lo = min(front_rc, rear_rc, 0) - 6
+    y_hi = max(front_rc, rear_rc, max_h) + 8
+    ax.set_ylim(y_lo, y_hi)
+    ax.set_aspect("auto")
+    ax.set_xlabel("Side View (inches)", color=text_color, fontsize=8)
+    ax.set_ylabel("Height (inches)", color=text_color, fontsize=8)
+    ax.tick_params(colors=text_color, labelsize=7)
+    for spine in ax.spines.values():
+        spine.set_color(grid_color)
+
+    plt.tight_layout()
+    return fig
+
+
 def render():
     st.title("📐 Roll Centres")
     st.caption("Calculate and track front and rear roll centre heights for each chassis.")
-
     chassis_list = get_chassis_list()
     if not chassis_list:
         st.warning("No chassis found. Please add a chassis in Chassis Profiles first.")
         return
-
     _ensure_headers()
-
     tab_calc, tab_log = st.tabs(["🔢 Calculate", "📋 Log / History"])
-
     with tab_calc:
         st.subheader("Roll Centre Calculator")
         st.markdown(
             "Front uses the **instant centre method** (double A-arm). "
             "Rear uses **upper link projection** (trailing arms + upper link)."
         )
-
         col_chassis, col_track, col_date = st.columns(3)
         with col_chassis:
             chassis = st.selectbox("Chassis", chassis_list, key="rc_chassis")
@@ -112,9 +251,7 @@ def render():
             track = st.text_input("Track / Event", key="rc_track")
         with col_date:
             date_val = st.text_input("Date", value=timestamp_now()[:10], key="rc_date")
-
         st.divider()
-
         st.markdown("### Front Suspension")
         st.caption("Double A-Arm")
         f1, f2, f3 = st.columns(3)
@@ -138,12 +275,9 @@ def render():
             f_uca_inner_h, f_uca_outer_h,
             f_spindle_h
         )
-
         st.divider()
-
         st.markdown("### Rear Suspension")
         st.caption("Trailing Arms + Upper Link")
-
         r1, r2, r3 = st.columns(3)
         with r1:
             st.markdown("**Trailing Arms**")
@@ -196,14 +330,11 @@ def render():
                 step=0.5, key="r_half_track",
                 help="Half the rear track width"
             )
-
         rear_rc = _calc_rear_rc_height(
             r_ul_frame_h, r_ul_axle_h,
             r_ul_frame_offset, r_ul_axle_offset
         )
-
         st.divider()
-
         rc_diff = round(rear_rc - front_rc, 3)
         st.markdown("### Calculated Roll Centre Heights")
         res1, res2, res3 = st.columns(3)
@@ -214,10 +345,14 @@ def render():
         with res3:
             delta_label = "Rear higher" if rc_diff > 0 else ("Front higher" if rc_diff < 0 else "Equal")
             st.metric("RC Diff (Rear - Front)", f"{rc_diff:.3f} in", delta=delta_label)
-
+        # --- Roll Centre Diagram ---
+        st.divider()
+        st.markdown("### Roll Centre Diagram")
+        fig = _draw_rc_diagram(front_rc, rear_rc)
+        st.pyplot(fig)
+        plt.close(fig)
         st.divider()
         notes = st.text_area("Notes", key="rc_notes", placeholder="Setup notes, track conditions, etc.")
-
         if st.button("Save to Log", type="primary", use_container_width=True):
             row = {
                 "chassis": chassis,
@@ -245,9 +380,8 @@ def render():
                 "rc_height_diff": rc_diff,
             }
             append_row("roll_centres", row)
-            st.success(f"Saved!  Front RC: {front_rc:.3f} in  |  Rear RC: {rear_rc:.3f} in")
+            st.success(f"Saved! Front RC: {front_rc:.3f} in | Rear RC: {rear_rc:.3f} in")
             st.rerun()
-
     with tab_log:
         st.subheader("Roll Centre Log")
         df = read_sheet("roll_centres")
@@ -259,13 +393,11 @@ def render():
             )
             if chassis_filter != "All":
                 df = df[df["chassis"] == chassis_filter]
-
             display_cols = [c for c in [
                 "chassis", "date", "track",
                 "front_rc_height", "rear_rc_height", "rc_height_diff", "notes"
             ] if c in df.columns]
             st.dataframe(df[display_cols], use_container_width=True, hide_index=True)
-
             st.divider()
             st.markdown("#### Delete Entry")
             row_nums = list(range(1, len(df) + 1))

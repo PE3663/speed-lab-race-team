@@ -913,16 +913,22 @@ def render():
             st.metric("Camber Change", f"{camber_changes[mid_idx]:.3f} deg")
         st.divider()
         st.markdown("##### Range Summary")
-        rg1, rg2, rg3 = st.columns(3)
+        rc_min = min(rc_heights); rc_max = max(rc_heights)
+        fv_min = min(fvsa_lengths); fv_max = max(fvsa_lengths)
+        cm_min = min(camber_changes); cm_max = max(camber_changes)
+        rg1, rg2, rg3, rg4, rg5, rg6 = st.columns(6)
         with rg1:
-            rc_min = min(rc_heights); rc_max = max(rc_heights)
-            st.metric("RC Range", f"{rc_min:.3f} to {rc_max:.3f} in")
+            st.metric("RC Min", f"{rc_min:.2f} in")
         with rg2:
-            fv_min = min(fvsa_lengths); fv_max = max(fvsa_lengths)
-            st.metric("FVSA Range", f"{fv_min:.1f} to {fv_max:.1f} in")
+            st.metric("RC Max", f"{rc_max:.2f} in")
         with rg3:
-            cm_min = min(camber_changes); cm_max = max(camber_changes)
-            st.metric("Camber Range", f"{cm_min:.3f} to {cm_max:.3f} deg")
+            st.metric("FVSA Min", f"{fv_min:.0f} in")
+        with rg4:
+            st.metric("FVSA Max", f"{fv_max:.0f} in")
+        with rg5:
+            st.metric("Camber Min", f"{cm_min:.3f}°")
+        with rg6:
+            st.metric("Camber Max", f"{cm_max:.3f}°")
         # Data table
         with st.expander("Raw Sweep Data"):
             sweep_df = pd.DataFrame({

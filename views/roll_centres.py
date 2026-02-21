@@ -808,7 +808,45 @@ def render():
                           else ("Front higher" if rc_diff < 0 else "Equal"))
             st.metric("RC Diff (Rear - Front)", f"{rc_diff:.3f} in",
                       delta=delta_label)
-        # -- Dive / Roll sliders --
+        # -- Vehicle Parameters --
+        st.divider()
+        st.markdown("### Vehicle Parameters")
+        vp1, vp2, vp3 = st.columns(3)
+        with vp1:
+            v_wheelbase = st.number_input("Wheelbase (in)", min_value=50.0, max_value=200.0, value=108.0, step=0.5, key="rc_wheelbase", help="Front to rear axle distance")
+        with vp2:
+            v_cg_height = st.number_input("CG Height (in)", min_value=5.0, max_value=40.0, value=15.0, step=0.25, key="rc_cg_height", help="Centre of gravity height")
+        with vp3:
+            v_total_weight = st.number_input("Total Weight (lbs)", min_value=500.0, max_value=5000.0, value=2800.0, step=25.0, key="rc_total_wt", help="Total car weight including driver")
+
+                # -- Load Transfer Estimate --
+        st.divider()
+        st.markdown("### Lateral Load Transfer Estimate")
+        if v_total_weight > 0 and f_spindle_h > 0:
+            half_track_ft = f_spindle_h / 12.0
+            moment_arm = v_cg_height - front_rc
+            lat_g = 1.0
+            lt_front = (v_total_weight * lat_g * moment_arm) / (2 * f_spindle_h) if f_spindle_h > 0 else 0
+            lt1, lt2, lt3 = st.columns(3)
+            with lt1:
+                st.metric("Moment Arm", f"{moment_arm:.2f} in", help="CG height minus front RC height")
+            with lt2:
+                st.metric("Front Lat. Transfer (1G)", f"{lt_front:.1f} lbs", help="Lateral load transfer at 1G cornering")
+            with lt3:
+                roll_couple = moment_arm / v_cg_height * 100 if v_cg_height > 0 else 0
+                st.metric("Roll Couple %", f"{roll_couple:.1f}%", help="Moment arm as % of CG height")
+
+        # -- Validation Warnings --
+        if front_rc < 0:
+            st.warning("Front RC is below ground. Check your arm heights.")
+        if rear_rc < 0:
+            st.warning("Rear RC is below ground. Check rear link geometry.")
+        if abs(rc_diff) > 3:
+            st.info(f"Large RC height difference ({rc_diff:.2f} in). This may cause handling imbalance.")
+        if front_rc > 10:
+            st.info("Front RC above 10 inches is unusually high for oval cars.")
+
+# -- Dive / Roll sliders --
         st.divider()
         st.markdown("### Dive / Roll Simulation")
         st.caption("Use the sliders to visualise how body dive (braking) "
@@ -826,7 +864,7 @@ def render():
         st.divider()
         st.markdown("### Roll Centre Diagram")
         fig = _draw_rc_diagram(front_rc, rear_rc,
-                              roll_deg=roll_deg, dive_deg=dive_deg, wheelbase=108, cg_height=15.0)
+                              roll_deg=roll_deg, dive_deg=dive_deg, wheelbase=v_wheelbase, cg_height=v_cg_height)
         st.pyplot(fig); plt.close(fig)
         # -- Front-view diagram (with roll) --
         st.divider()
@@ -1209,7 +1247,7 @@ def render():
                 fig_cmp, ax_cmp = plt.subplots(figsize=(10, 4))
                 fig_cmp.patch.set_facecolor("#0e1117")
                 ax_cmp.set_facecolor("#1a1e2e")
-                wb = 108  # wheelbase for compare overlay
+                wb = st.session_state.get("rc_wheelbase", 108)  # wheelbase for compare overlay
                 ax_cmp.axhline(y=0, color="#3a3f4b", linewidth=2)
                 ax_cmp.plot([0, wb], [frc_a, rrc_a], "o-",
                     color="#00d4ff", linewidth=2.5, markersize=10,

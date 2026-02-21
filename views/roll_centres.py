@@ -301,21 +301,21 @@ def _draw_rc_diagram(front_rc, rear_rc, roll_deg=0.0, dive_deg=0.0):
                          edgecolor=axis_color, alpha=0.7), zorder=6)
     # Vertical reference lines from ground to RC
     ax.plot([0, 0], [0, eff_front_rc], color=front_color, linewidth=1.2,
-            linestyle="--", alpha=0.5, zorder=4)
+            linestyle="--", alpha=0.9, zorder=4)
     ax.plot([wheelbase, wheelbase], [0, eff_rear_rc], color=rear_color,
-            linewidth=1.2, linestyle="--", alpha=0.5, zorder=4)
+            linewidth=1.2, linestyle="--", alpha=0.9, zorder=4)
     # NEW: Height dimension arrows
     arr_offset = -8
     ax.annotate("", xy=(arr_offset, eff_front_rc), xytext=(arr_offset, 0),
                 arrowprops=dict(arrowstyle="<->", color=front_color, lw=1.2))
     ax.text(arr_offset - 3, eff_front_rc / 2, f'{eff_front_rc:.3f}"',
-            fontsize=7, color=front_color, ha="right", va="center",
+            fontsize=9, color=front_color, ha="right", va="center",
             rotation=90, zorder=6)
     arr_offset_r = wheelbase + 8
     ax.annotate("", xy=(arr_offset_r, eff_rear_rc), xytext=(arr_offset_r, 0),
                 arrowprops=dict(arrowstyle="<->", color=rear_color, lw=1.2))
     ax.text(arr_offset_r + 3, eff_rear_rc / 2, f'{eff_rear_rc:.3f}"',
-            fontsize=7, color=rear_color, ha="left", va="center",
+            fontsize=9, color=rear_color, ha="left", va="center",
             rotation=90, zorder=6)
     # RC annotations
     f_offset = 2.5 if eff_front_rc >= 0 else -3.5
@@ -350,7 +350,7 @@ def _draw_rc_diagram(front_rc, rear_rc, roll_deg=0.0, dive_deg=0.0):
     cg_y = body_y + 5  # approximate CG height
     ax.plot(cg_x, cg_y, "x", color="#ff55ff", markersize=12,
             markeredgewidth=2.5, zorder=6)
-    ax.text(cg_x, cg_y + 2, "CG (est.)", fontsize=7, color="#ff55ff",
+    ax.text(cg_x, cg_y + 2, "CG (est.)", fontsize=9, color="#ff55ff",
             ha="center", va="bottom", fontstyle="italic",
             alpha=0.7, zorder=6)
     # NEW: Moment arm lines from CG to roll axis
@@ -362,20 +362,20 @@ def _draw_rc_diagram(front_rc, rear_rc, roll_deg=0.0, dive_deg=0.0):
                 linewidth=1, linestyle="-.", alpha=0.4, zorder=4)
         moment_arm = abs(cg_y - ra_y_at_cg)
         ax.text(cg_x + 3, (ra_y_at_cg + cg_y) / 2,
-                f"h={moment_arm:.1f}\"", fontsize=6, color="#ff55ff",
-                ha="left", va="center", alpha=0.6, zorder=6)
+                f"h={moment_arm:.1f}\"", fontsize=9, color="#ff55ff",
+                ha="left", va="center", alpha=0.9, zorder=6)
     # Labels
     ax.text(0, -3.5, "FRONT", fontsize=9, color=text_color,
             ha="center", fontweight="bold", zorder=6)
     ax.text(wheelbase, -3.5, "REAR", fontsize=9, color=text_color,
             ha="center", fontweight="bold", zorder=6)
-    ax.text(-15, -0.3, "GROUND", fontsize=7, color=ground_color,
+    ax.text(-15, -0.3, "GROUND", fontsize=9, color=ground_color,
             ha="left", va="top", fontstyle="italic", zorder=6)
     # NEW: Wheelbase dimension
     ax.annotate("", xy=(wheelbase, -5), xytext=(0, -5),
                 arrowprops=dict(arrowstyle="<->", color="#888", lw=1))
     ax.text(wheelbase / 2, -5.8, f"Wheelbase: {wheelbase}\"",
-            fontsize=7, color="#888", ha="center", va="top", zorder=6)
+            fontsize=9, color="#888", ha="center", va="top", zorder=6)
     # Dive/roll info
     if abs(dive_deg) > 0.01 or abs(roll_deg) > 0.01:
         info = []
@@ -383,7 +383,7 @@ def _draw_rc_diagram(front_rc, rear_rc, roll_deg=0.0, dive_deg=0.0):
             info.append(f"Dive: {dive_deg:+.1f}\u00b0")
         if abs(roll_deg) > 0.01:
             info.append(f"Roll: {roll_deg:+.1f}\u00b0")
-        ax.text(wheelbase + 20, -3.5, " | ".join(info), fontsize=7,
+        ax.text(wheelbase + 20, -3.5, " | ".join(info), fontsize=9,
                 color="#888", ha="right", va="top", fontstyle="italic", zorder=6)
     ax.set_xlim(-25, wheelbase + 25)
     y_lo = min(eff_front_rc, eff_rear_rc, 0) - 8
@@ -408,7 +408,7 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
     lca_color = "#00d4ff"; uca_color = "#ff6b35"; ic_color = "#ffd700"
     rc_color = "#00ff88"; text_color = "#e0e0e0"; grid_color = "#2a2e3a"
     tire_color = "#555555"; fvsa_color = "#ff55ff"
-    spindle_color = "#aaaaff"; dim_color = "#888888"
+    spindle_color = "#aaaaff"; dim_color = "#cccccc"
     INNER_X = 4.0
     outer_x = half_track
     # Body roll shifts
@@ -456,10 +456,10 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
     # NEW: Tire centre lines (vertical dashed through wheel centre)
     for sign in [1, -1]:
         wx = half_track * sign
-        ax.plot([wx, wx], [0, tire_h + 2], color="#666",
-                linewidth=1, linestyle=":", alpha=0.4, zorder=2)
-        ax.text(wx, tire_h + 2.5, "WC", fontsize=6, color="#666",
-                ha="center", va="bottom", alpha=0.5, zorder=6)
+        ax.plot([wx, wx], [0, tire_h + 2], color="#aaa",
+                linewidth=1, linestyle=":", alpha=0.8, zorder=2)
+        ax.text(wx, tire_h + 2.5, "WC", fontsize=9, color="#aaa",
+                ha="center", va="bottom", alpha=0.9, zorder=6)
     # Frame box
     frame_w = INNER_X * 2 + 4; frame_h = uca_inner_h - lca_inner_h + 4
     frame = patches.FancyBboxPatch((-frame_w / 2, lca_inner_h - 2),
@@ -482,9 +482,9 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
             zorder=5, markeredgecolor="white", markeredgewidth=1)
     # NEW: Spindle / Kingpin line (connects upper and lower ball joints)
     ax.plot([outer_x, outer_x], [lo_h_r, uo_h_r], color=spindle_color,
-            linewidth=2, linestyle="-", alpha=0.7, zorder=4)
-    ax.text(outer_x + 1.5, (lo_h_r + uo_h_r) / 2, "KP", fontsize=6,
-            color=spindle_color, ha="left", va="center", alpha=0.6, zorder=6)
+            linewidth=2, linestyle="-", alpha=0.9, zorder=4)
+    ax.text(outer_x + 1.5, (lo_h_r + uo_h_r) / 2, "KP", fontsize=9,
+            color=spindle_color, ha="left", va="center", alpha=0.9, zorder=6)
     # NEW: KPI angle (King Pin Inclination)
     kpi_dy = uo_h_r - lo_h_r
     if abs(kpi_dy) > 0.01:
@@ -492,34 +492,34 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
         # True KPI: angle from vertical
         kpi_actual = 90.0 - math.degrees(math.atan2(kpi_dy, 0.001))
         ax.text(outer_x + 1.5, lo_h_r - 1.5,
-                f"KPI: {abs(kpi_actual):.1f}\u00b0", fontsize=6,
-                color=spindle_color, ha="left", va="top", alpha=0.6, zorder=6)
+                f"KPI: {abs(kpi_actual):.1f}\u00b0", fontsize=9,
+                color=spindle_color, ha="left", va="top", alpha=0.9, zorder=6)
     # NEW: Arm angle annotations (right side)
     lca_angle_r = math.degrees(math.atan2(lo_h_r - lca_inner_h, outer_x - INNER_X))
     uca_angle_r = math.degrees(math.atan2(uo_h_r - uca_inner_h, outer_x - INNER_X))
     lca_mid_x = (INNER_X + outer_x) / 2
     lca_mid_y = (lca_inner_h + lo_h_r) / 2
     ax.text(lca_mid_x, lca_mid_y - 1.5, f"{lca_angle_r:.1f}\u00b0",
-            fontsize=7, color=lca_color, ha="center", va="top",
+            fontsize=9, color=lca_color, ha="center", va="top",
             fontweight="bold", alpha=0.8, zorder=6,
             bbox=dict(boxstyle="round,pad=0.15", facecolor=card_bg,
-                     edgecolor=lca_color, alpha=0.6))
+                     edgecolor=lca_color, alpha=0.85))
     uca_mid_x = (INNER_X + outer_x) / 2
     uca_mid_y = (uca_inner_h + uo_h_r) / 2
     ax.text(uca_mid_x, uca_mid_y + 1.5, f"{uca_angle_r:.1f}\u00b0",
-            fontsize=7, color=uca_color, ha="center", va="bottom",
+            fontsize=9, color=uca_color, ha="center", va="bottom",
             fontweight="bold", alpha=0.8, zorder=6,
             bbox=dict(boxstyle="round,pad=0.15", facecolor=card_bg,
-                     edgecolor=uca_color, alpha=0.6))
+                     edgecolor=uca_color, alpha=0.85))
     # NEW: Arm length labels (right side)
     lca_actual = math.sqrt((outer_x - INNER_X)**2 + (lo_h_r - lca_inner_h)**2)
     uca_actual = math.sqrt((outer_x - INNER_X)**2 + (uo_h_r - uca_inner_h)**2)
     ax.text(lca_mid_x + 6, lca_mid_y + 0.5, f"{lca_actual:.1f}\"",
-            fontsize=6, color=lca_color, ha="left", va="center",
-            alpha=0.5, fontstyle="italic", zorder=6)
+            fontsize=9, color=lca_color, ha="left", va="center",
+            alpha=0.9, fontstyle="italic", zorder=6)
     ax.text(uca_mid_x + 6, uca_mid_y - 0.5, f"{uca_actual:.1f}\"",
-            fontsize=6, color=uca_color, ha="left", va="center",
-            alpha=0.5, fontstyle="italic", zorder=6)
+            fontsize=9, color=uca_color, ha="left", va="center",
+            alpha=0.9, fontstyle="italic", zorder=6)
     # Left-side arms
     ax.plot([-INNER_X, -outer_x], [lca_inner_h, lo_h_l],
             color=lca_color, linewidth=2.5, alpha=0.6, zorder=4)
@@ -530,7 +530,7 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
         ax.plot(px, py, "o", color="#888", markersize=6, alpha=0.6, zorder=5)
     # Left spindle
     ax.plot([-outer_x, -outer_x], [lo_h_l, uo_h_l], color=spindle_color,
-            linewidth=2, linestyle="-", alpha=0.5, zorder=4)
+            linewidth=2, linestyle="-", alpha=0.9, zorder=4)
     # NEW: RC migration trail (shows RC at different travel positions)
     trail_steps = 9
     trail_range = 2.0
@@ -541,7 +541,7 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
         tg = _front_view_ic(lca_len, uca_len, lca_inner_h, lca_outer_h,
                            uca_inner_h, uca_outer_h, half_track, bump_in=tt)
         if tg["rc_y"] is not None:
-            alpha_val = 0.15 + 0.1 * (1 - abs(tt - bump_in) / trail_range)
+            alpha_val = 0.3 + 0.2 * (1 - abs(tt - bump_in) / trail_range)
             ax.plot(0, tg["rc_y"], "o", color=rc_color, markersize=5,
                     alpha=alpha_val, zorder=3)
     # Right-side IC construction
@@ -574,7 +574,7 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
     ax.annotate("", xy=(half_track, -1.5), xytext=(outer_x, -1.5),
                 arrowprops=dict(arrowstyle="<->", color=dim_color, lw=1))
     ax.text((half_track + outer_x) / 2, -2.5,
-            f"Scrub: {abs(scrub_radius):.1f}\"", fontsize=6,
+            f"Scrub: {abs(scrub_radius):.1f}\"", fontsize=9,
             color=dim_color, ha="center", va="top", zorder=6)
     # Left-side IC construction
     ic_x_l = geo_l["ic_x"]; ic_y_l = geo_l["ic_y"]
@@ -603,7 +603,7 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
                 alpha=0.4, zorder=4)
         ax.plot([-half_track, 0], [0, rc_y_l],
                 color=rc_color, linewidth=1.5, linestyle="--",
-                alpha=0.5, zorder=4)
+                alpha=0.9, zorder=4)
     # RC marker (use average of L/R if rolling)
     if abs(roll_deg) > 0.01 and rc_y_r is not None and rc_y_l is not None:
         avg_rc = (rc_y_r + rc_y_l) / 2
@@ -638,13 +638,13 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
         cx = half_track if side_key == "R" else -half_track
         ax.plot(cx, 0, "^", color="#aaa", markersize=10,
                 zorder=5, markeredgecolor="white", markeredgewidth=1)
-        ax.text(cx, -1.5, "Contact\nPatch", fontsize=7, color="#aaa",
+        ax.text(cx, -1.5, "Contact\nPatch", fontsize=9, color="#aaa",
                 ha="center", va="top", zorder=6)
     # NEW: Track width dimension
     ax.annotate("", xy=(half_track, -4), xytext=(-half_track, -4),
                 arrowprops=dict(arrowstyle="<->", color=dim_color, lw=1))
     ax.text(0, -4.8, f"Track: {half_track * 2:.1f}\"",
-            fontsize=7, color=dim_color, ha="center", va="top", zorder=6)
+            fontsize=9, color=dim_color, ha="center", va="top", zorder=6)
     # Info text
     if abs(bump_in) > 0.001 or abs(roll_deg) > 0.01:
         parts = []
@@ -668,7 +668,7 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
         y_hi_val = max(y_hi_val, ic_y_r + 8)
     if ic_y_l is not None:
         y_hi_val = max(y_hi_val, ic_y_l + 8)
-    ax.set_ylim(y_lo, y_hi_val); ax.set_aspect("equal")
+    ax.set_ylim(y_lo, y_hi_val); ax.set_aspect("auto")
     ax.set_xlabel("Lateral Position (inches)", color=text_color, fontsize=8)
     ax.set_ylabel("Height (inches)", color=text_color, fontsize=8)
     title_txt = "Front View \u2014 Instant Centre Construction"

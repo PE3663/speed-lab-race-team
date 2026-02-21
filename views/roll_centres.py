@@ -678,17 +678,17 @@ def render():
         with m1:
             if geo["ic_x"] is not None and geo["ic_y"] is not None:
                 st.metric("IC Position",
-                          f"({geo['ic_x']:.1f}, {geo['ic_y']:.1f})")
+                          f"({geo['ic_x']:.1f}, {geo['ic_y']:.1f})", help="The Instant Centre (IC) is where the upper and lower control arm lines intersect. Shown as (lateral position, height) in inches.")
             else:
-                st.metric("IC Position", "-- (parallel)")
+                st.metric("IC Position", "-- (parallel)", help="The Instant Centre (IC) is where the upper and lower control arm lines intersect. Shown as (lateral position, height) in inches.")
         with m2:
             fvsa_val = f"{geo['fvsa']:.1f} in" if geo["fvsa"] is not None else "--"
-            st.metric("FVSA Length", fvsa_val)
+            st.metric("FVSA Length", fvsa_val, help="Front View Swing Arm length — the distance from the tire contact patch to the Instant Centre. A longer FVSA means less camber change per inch of wheel travel.")
         with m3:
             rc_val = f"{geo['rc_y']:.3f} in" if geo["rc_y"] is not None else "--"
-            st.metric("Roll Centre Height", rc_val)
+            st.metric("Roll Centre Height", rc_val, help="The height above ground where the car's body pivots during cornering at this axle. Found by drawing a line from the contact patch through the IC to the centreline.")
         with m4:
-            st.metric("Camber Change", f"{geo['camber']:.3f} deg")
+            st.metric("Camber Change", f"{geo['camber']:.3f} deg", help="The change in wheel camber angle from static at the current bump/droop position. Negative in bump is typical and helps cornering grip.")
 
         # -- Save --
         st.divider()

@@ -458,7 +458,7 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
             (-tire_w / 2, 0), tire_w, tire_h,
             facecolor=tire_color, edgecolor="#777",
             alpha=0.5, linewidth=1.5, zorder=2)
-        t = mtransforms.Affine2D().rotate_deg_around(0, 0, -camber_deg * sign) + \
+        t = mtransforms.Affine2D().rotate_deg_around(0, 0, -camber_deg * sign * 3) + \
             mtransforms.Affine2D().translate(cp_x, 0) + ax.transData
         tire_rect.set_transform(t)
         ax.add_patch(tire_rect)

@@ -8,7 +8,7 @@ from pyzbar.pyzbar import decode as pyzbar_decode
 from utils.gsheet_db import read_sheet, append_row, delete_row, update_row, get_chassis_list, timestamp_now
 
 
-# --- Helper: build tire number list text for print/email ---
+    # --- Helper: build tire number list text for print/email ---
 def _build_tire_list_text(category, tire_numbers_list, driver_name, car_number, team_email, reg_date):
     """Build a plain-text REGISTERED TIRES list."""
     lines = []
@@ -32,11 +32,12 @@ def _build_tire_list_text(category, tire_numbers_list, driver_name, car_number, 
     lines.append("=" * 40)
     return "\n".join(lines)
 
+
 # --- Helper: render a registration category tab ---
 def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
     cat_data = reg_df[reg_df["category"] == category] if not reg_df.empty and "category" in reg_df.columns else None
     if cat_data is not None and not cat_data.empty:
-        display_cols = [c for c in ["tire_number", "track_or_series", "mould_mark", "finish_size", "notes", "registered_date"] if c in cat_data.columns]
+        display_cols = [c for c in ["tire_number", "track_or_series", "notes", "registered_date"] if c in cat_data.columns]
         st.dataframe(cat_data[display_cols] if display_cols else cat_data, use_container_width=True, hide_index=True)
         if "track_or_series" in cat_data.columns:
             groups = cat_data["track_or_series"].unique().tolist()
@@ -44,15 +45,10 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
                 grp_tires = cat_data[cat_data["track_or_series"] == grp]
                 with st.expander(f"{icon} {grp} ({len(grp_tires)} tires)"):
                     for _, r in grp_tires.iterrows():
-                        tc1, tc2, tc3 = st.columns([3, 1, 1])
+                        tc1, tc2 = st.columns([3, 1])
                         with tc1:
                             st.markdown(f"**{r.get('tire_number', '')}** \u2014 {r.get('notes', '')}")
                         with tc2:
-                            mm = r.get('mould_mark', '')
-                            fs = r.get('finish_size', '')
-                            if mm or fs:
-                                st.caption(f"Mould: {mm} | Size: {fs}")
-                        with tc3:
                             st.caption(r.get("registered_date", ""))
     else:
         st.info(f"No tires registered for {category} yet.")
@@ -113,7 +109,8 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
                 )
 
     st.markdown("---")
-        # --- Barcode Scanner for Registration ---
+
+    # --- Barcode Scanner for Registration ---
     scan_key = f"scanned_reg_{tab_key}"
     if scan_key not in st.session_state:
         st.session_state[scan_key] = ""
@@ -134,6 +131,7 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
                 st.error(f"Scanner error: {e}")
     if st.session_state.get(scan_key):
         st.success(f"Scanned: **{st.session_state[scan_key]}** -- pre-filled below")
+
     with st.form(f"reg_{tab_key}_form", clear_on_submit=True):
         st.markdown(f"**Register a Tire for {category}**")
         rc1, rc2 = st.columns(2)
@@ -170,6 +168,7 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
                 })
                 st.success(f"Tire '{final_tire}' registered for {category}!")
                 st.rerun()
+
     if cat_data is not None and not cat_data.empty and "tire_number" in cat_data.columns:
         st.markdown("---")
         del_labels = []
@@ -189,6 +188,7 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
 def render():
     st.header("\U0001f6a2 Tire Inventory")
     tab1, tab2, tab3 = st.tabs(["View Tires", "Registered Tires", "Add New Tire"])
+
     # ==============================================
     # TAB 1 -- View Tires (Inventory)
     # ==============================================
@@ -221,6 +221,7 @@ def render():
                 st.metric("Delaware", len(df[df["status"] == "Delaware"]) if "status" in df.columns else 0)
             with sc4:
                 st.metric("Used", len(df[df["status"] == "Used"]) if "status" in df.columns else 0)
+
             # --- Edit Tire ---
             st.divider()
             st.subheader("Edit Tire")
@@ -257,6 +258,7 @@ def render():
                             update_row("tires", row_idx + 2, updated)
                             st.success(f"Tire '{edit_sel}' updated!")
                             st.rerun()
+
             # --- Delete Tire ---
             st.divider()
             st.subheader("Delete Tire")
@@ -276,6 +278,7 @@ def render():
                     st.rerun()
         else:
             st.info("No tires in inventory. Add your first tire below.")
+
     # ==============================================
     # TAB 2 -- Registered Tires
     # ==============================================
@@ -310,6 +313,7 @@ def render():
             _reg_tab("Delaware", "\U0001f3c1", reg_df, tire_numbers, "del", tire_df)
         with reg_ser:
             _reg_tab("Series", "\U0001f3c6", reg_df, tire_numbers, "ser", tire_df)
+
     # ==============================================
     # TAB 3 -- Add New Tire
     # ==============================================
@@ -335,6 +339,7 @@ def render():
                     st.error(f"Scanner error: {e}")
         if st.session_state["scanned_tire_number"]:
             st.success(f"Scanned: **{st.session_state['scanned_tire_number']}** -- pre-filled below")
+
         with st.form("add_tire", clear_on_submit=True):
             st.subheader("New Tire Entry")
             c1, c2 = st.columns(2)

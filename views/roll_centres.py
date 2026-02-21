@@ -444,15 +444,24 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
                linestyle="-.", alpha=0.5, zorder=1)
     ax.text(0.5, max_h - 1, "CL", fontsize=8, color=grid_color,
             ha="left", va="top", fontstyle="italic", zorder=6)
-    # Tires
+    # Tires (rotated by camber angle)
+    import matplotlib.transforms as mtransforms
     tire_w = 4; tire_h = 10
-    tire_x = half_track - tire_w / 2
     for sign in [1, -1]:
-        tx = tire_x * sign if sign == 1 else -tire_x - tire_w
-        tire = patches.FancyBboxPatch((tx, 0), tire_w, tire_h,
-                boxstyle="round,pad=0.5", facecolor=tire_color,
-                edgecolor="#777", alpha=0.5, linewidth=1.5, zorder=2)
-        ax.add_patch(tire)
+        # Get camber for this side
+        side_geo = geo_r if sign == 1 else geo_l
+        camber_deg = side_geo["camber"] or 0.0
+        # Contact patch centre (rotation pivot)
+        cp_x = half_track * sign
+        # Draw tire as rectangle rotated around contact patch
+        tire_rect = patches.Rectangle(
+            (-tire_w / 2, 0), tire_w, tire_h,
+            facecolor=tire_color, edgecolor="#777",
+            alpha=0.5, linewidth=1.5, zorder=2)
+        t = mtransforms.Affine2D().rotate_deg_around(0, 0, -camber_deg * sign) + \
+            mtransforms.Affine2D().translate(cp_x, 0) + ax.transData
+        tire_rect.set_transform(t)
+        ax.add_patch(tire_rect)
     # NEW: Tire centre lines (vertical dashed through wheel centre)
     for sign in [1, -1]:
         wx = half_track * sign

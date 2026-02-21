@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import math
-import numpy as np
+import numpy as np; import io
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.patches import FancyArrowPatch
@@ -204,7 +204,7 @@ def _draw_sweep_chart(travels, rc_heights, fvsa_lengths, camber_changes):
         ax.set_facecolor(card_bg)
         ax.plot(travels, data, color=color, linewidth=2.5, marker="o", markersize=3)
         ax.axhline(y=0, color="#3a3f4b", linewidth=1, linestyle="--")
-        ax.axvline(x=0, color="#3a3f4b", linewidth=1, linestyle="--")
+        ax.axvline(x=0, color="#ffaa00", linewidth=1.5, linestyle="--", alpha=0.7)
         ax.fill_between(travels, data, 0, alpha=0.1, color=color)
         ax.set_ylabel(ylabel, color=text_color, fontsize=8)
         ax.set_title(title, color=text_color, fontsize=9, fontweight="bold", loc="left")
@@ -219,12 +219,12 @@ def _draw_sweep_chart(travels, rc_heights, fvsa_lengths, camber_changes):
 # ---------------------------------------------------------------------------
 # DIAGRAM: Side-view Roll Centre + Roll Axis  (ENHANCED)
 # ---------------------------------------------------------------------------
-def _draw_rc_diagram(front_rc, rear_rc, roll_deg=0.0, dive_deg=0.0):
+def _draw_rc_diagram(front_rc, rear_rc, roll_deg=0.0, dive_deg=0.0, wheelbase=108, cg_height=15.0):
     bg = "#0e1117"; card_bg = "#1a1e2e"; ground_color = "#3a3f4b"
     car_color = "#cc0000"; car_outline = "#ff3333"
     front_color = "#00d4ff"; rear_color = "#ff6b35"
     axis_color = "#ffd700"; text_color = "#e0e0e0"; grid_color = "#2a2e3a"
-    wheelbase = 108
+    # wheelbase is now a function parameter
     fig, ax = plt.subplots(figsize=(10, 4.5))
     fig.patch.set_facecolor(bg); ax.set_facecolor(card_bg)
     # Ground line
@@ -347,10 +347,10 @@ def _draw_rc_diagram(front_rc, rear_rc, roll_deg=0.0, dive_deg=0.0):
                      edgecolor=axis_color, alpha=0.7), zorder=6)
     # NEW: CG estimate marker (visual reference)
     cg_x = wheelbase * 0.47  # slightly front-biased
-    cg_y = body_y + 5  # approximate CG height
+    cg_y = cg_height  # approximate CG height
     ax.plot(cg_x, cg_y, "x", color="#ff55ff", markersize=12,
             markeredgewidth=2.5, zorder=6)
-    ax.text(cg_x, cg_y + 2, "CG (est.)", fontsize=9, color="#ff55ff",
+    ax.text(cg_x, cg_y + 2, f"CG ({cg_height:.0f}in)", fontsize=9, color="#ff55ff",
             ha="center", va="bottom", fontstyle="italic",
             alpha=0.7, zorder=6)
     # NEW: Moment arm lines from CG to roll axis
@@ -374,7 +374,7 @@ def _draw_rc_diagram(front_rc, rear_rc, roll_deg=0.0, dive_deg=0.0):
     # NEW: Wheelbase dimension
     ax.annotate("", xy=(wheelbase, -5), xytext=(0, -5),
                 arrowprops=dict(arrowstyle="<->", color="#888", lw=1))
-    ax.text(wheelbase / 2, -5.8, f"Wheelbase: {wheelbase}\"",
+    ax.text(wheelbase / 2, -5.8, f"Wheelbase: {wheelbase:.0f}\"",
             fontsize=9, color="#888", ha="center", va="top", zorder=6)
     # Dive/roll info
     if abs(dive_deg) > 0.01 or abs(roll_deg) > 0.01:
@@ -499,7 +499,7 @@ def _draw_front_view_rc(lca_len, uca_len, lca_inner_h, lca_outer_h,
     if abs(kpi_dy) > 0.01:
         kpi_angle = math.degrees(math.atan2(0, kpi_dy))  # vertical = 0 deg
         # True KPI: angle from vertical
-        kpi_actual = 90.0 - math.degrees(math.atan2(kpi_dy, 0.001))
+        kpi_actual = 0.0  # vertical kingpin in this model
         ax.text(outer_x + 1.5, lo_h_r - 1.5,
                 f"KPI: {abs(kpi_actual):.1f}\u00b0", fontsize=9,
                 color=spindle_color, ha="left", va="top", alpha=0.9, zorder=6)
@@ -826,7 +826,7 @@ def render():
         st.divider()
         st.markdown("### Roll Centre Diagram")
         fig = _draw_rc_diagram(front_rc, rear_rc,
-                              roll_deg=roll_deg, dive_deg=dive_deg)
+                              roll_deg=roll_deg, dive_deg=dive_deg, wheelbase=108, cg_height=15.0)
         st.pyplot(fig); plt.close(fig)
         # -- Front-view diagram (with roll) --
         st.divider()
@@ -908,7 +908,7 @@ def render():
                 st.metric("Roll Centre Height", rc_val,
                     help="Height above ground where the car body pivots during cornering.")
             with m4:
-                st.metric("Camber Change", f"{geo_r['camber']:.3f} deg",
+                st.metric("Camber Angle", f"{geo_r['camber']:.3f} deg",
                     help="Camber angle at the current bump/droop position.")
         # -- Save --
         st.divider()
@@ -1125,14 +1125,14 @@ def render():
             st.metric("Camber Min", f"{cm_min:.3f}\u00b0")
         with rg6:
             st.metric("Camber Max", f"{cm_max:.3f}\u00b0")
-        with st.expander("Raw Sweep Data"):
+        with st.expander("Raw Sweep Data & CSV Export"):
             sweep_df = pd.DataFrame({
                 "Travel (in)": travels,
                 "RC Height (in)": [round(v, 3) for v in rc_heights],
                 "FVSA (in)": [round(v, 1) for v in fvsa_lengths],
                 "Camber Change (deg)": camber_changes,
             })
-            st.dataframe(sweep_df, use_container_width=True, hide_index=True)
+            st.dataframe(sweep_df, use_container_width=True, hide_index=True); st.download_button("Download CSV", sweep_df.to_csv(index=False), "sweep_data.csv", "text/csv", key="sw_csv")
     # ================================================================
     # COMPARE SETUPS TAB
     # ================================================================
@@ -1209,7 +1209,7 @@ def render():
                 fig_cmp, ax_cmp = plt.subplots(figsize=(10, 4))
                 fig_cmp.patch.set_facecolor("#0e1117")
                 ax_cmp.set_facecolor("#1a1e2e")
-                wb = 108
+                wb = 108  # wheelbase for compare overlay
                 ax_cmp.axhline(y=0, color="#3a3f4b", linewidth=2)
                 ax_cmp.plot([0, wb], [frc_a, rrc_a], "o-",
                     color="#00d4ff", linewidth=2.5, markersize=10,

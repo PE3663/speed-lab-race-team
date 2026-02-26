@@ -28,7 +28,8 @@ ALL_HEADERS = [
     # Chassis / Drivetrain
     "gear_ratio", "sway_bar", "track_bar",
     "panhard", "trailing_arm",
-    "tire_pressures", "stagger",
+    "tire_pres_LF", "tire_pres_RF", "tire_pres_LR", "tire_pres_RR",
+    "stagger",
     "notes",
 ]
 
@@ -194,7 +195,7 @@ def _show_detail(data):
             m3.metric("Left Side", f"{left_pct:.1f}%")
 
     # Chassis / Drivetrain
-    dt_keys = ['gear_ratio','sway_bar','track_bar','panhard','trailing_arm','tire_pressures','stagger']
+    dt_keys = ['gear_ratio','sway_bar','track_bar','panhard','trailing_arm','stagger']
     dt_any = any(_v(data, k) for k in dt_keys)
     if dt_any:
         with st.expander("\U0001f3ce\ufe0f Chassis & Drivetrain", expanded=True):
@@ -202,10 +203,19 @@ def _show_detail(data):
             d1.metric("Sway Bar", _v(data, 'sway_bar', '\u2014'))
             d2.metric("Track Bar", _v(data, 'track_bar', '\u2014'))
             d3.metric("Panhard", _v(data, 'panhard', '\u2014'))
-            e1, e2, e3 = st.columns(3)
+            e1, e2 = st.columns(2)
             e1.metric("Trailing Arm", _v(data, 'trailing_arm', '\u2014'))
-            e2.metric("Tire Pressures", _v(data, 'tire_pressures', '\u2014'))
-            e3.metric("Stagger", _v(data, 'stagger', '\u2014'))
+            e2.metric("Stagger", _v(data, 'stagger', '\u2014'))
+
+    # Tire Pressures
+    tp_any = any(_v(data, f'tire_pres_{c}') for c in CORNERS)
+    if tp_any:
+        with st.expander("\U0001f3ce\ufe0f Tire Pressures", expanded=True):
+            tp1, tp2, tp3, tp4 = st.columns(4)
+            tp1.metric("LF", _v(data, 'tire_pres_LF', '\u2014'))
+            tp2.metric("RF", _v(data, 'tire_pres_RF', '\u2014'))
+            tp3.metric("LR", _v(data, 'tire_pres_LR', '\u2014'))
+            tp4.metric("RR", _v(data, 'tire_pres_RR', '\u2014'))
 
     # Notes
     notes = _v(data, 'notes')
@@ -225,7 +235,13 @@ def _setup_form(data, chassis_list, form_key):
                 key=f"{form_key}_chassis")
             setup_name = st.text_input("Setup Name *", value=_v(data, 'setup_name'), key=f"{form_key}_name")
         with bc2:
-            st.text_input("Date", value=_v(data, 'date', timestamp_now()), key=f"{form_key}_date", disabled=True)
+            from datetime import datetime, date as dt_date
+            default_date_str = _v(data, 'date', '')
+            try:
+                default_date = datetime.strptime(default_date_str[:10], "%Y-%m-%d").date() if default_date_str else dt_date.today()
+            except (ValueError, TypeError):
+                default_date = dt_date.today()
+            setup_date = st.date_input("Date", value=default_date, key=f"{form_key}_date")
 
         st.divider()
         st.subheader("\U0001f9f2 Springs")
@@ -346,8 +362,19 @@ def _setup_form(data, chassis_list, form_key):
             panhard = st.text_input("Panhard Bar", value=_v(data, 'panhard'), key=f"{form_key}_pan")
             trailing_arm = st.text_input("Trailing Arm Angle", value=_v(data, 'trailing_arm'), key=f"{form_key}_ta")
         with tc2:
-            tire_pressure = st.text_input("Tire Pressures (LF/RF/LR/RR)", value=_v(data, 'tire_pressures'), key=f"{form_key}_tp")
             stagger = st.text_input("Stagger", value=_v(data, 'stagger'), key=f"{form_key}_stag")
+
+        st.markdown("**Tire Pressures**")
+        tp1, tp2, tp3, tp4 = st.columns(4)
+        tp_vals = {}
+        with tp1:
+            tp_vals['tire_pres_LF'] = st.text_input("LF Pressure", value=_v(data, 'tire_pres_LF'), key=f"{form_key}_tp_lf")
+        with tp2:
+            tp_vals['tire_pres_RF'] = st.text_input("RF Pressure", value=_v(data, 'tire_pres_RF'), key=f"{form_key}_tp_rf")
+        with tp3:
+            tp_vals['tire_pres_LR'] = st.text_input("LR Pressure", value=_v(data, 'tire_pres_LR'), key=f"{form_key}_tp_lr")
+        with tp4:
+            tp_vals['tire_pres_RR'] = st.text_input("RR Pressure", value=_v(data, 'tire_pres_RR'), key=f"{form_key}_tp_rr")
 
         st.divider()
         notes = st.text_area("Setup Notes", value=_v(data, 'notes'), key=f"{form_key}_notes")
@@ -355,12 +382,12 @@ def _setup_form(data, chassis_list, form_key):
         submitted = st.form_submit_button("\U0001f4be Save Setup", type="primary")
 
     return submitted, {
-        "chassis": chassis, "setup_name": setup_name, "date": timestamp_now(),
+        "chassis": chassis, "setup_name": setup_name, "date": str(setup_date),
         **spr, **bump, **comp, **reb, **rh, **align,
         "toe": toe, **wt,
         "gear_ratio": gear_ratio, "sway_bar": sway_bar, "track_bar": track_bar,
         "panhard": panhard, "trailing_arm": trailing_arm,
-        "tire_pressures": tire_pressure, "stagger": stagger,
+        **tp_vals, "stagger": stagger,
         "notes": notes,
     }
 
@@ -487,10 +514,21 @@ def render():
         df = read_sheet("setups")
         if not df.empty and "setup_name" in df.columns:
             del_name = st.selectbox("Select setup to delete", df["setup_name"].tolist(), key="del_setup_select")
-            if st.button("\U0001f5d1 Delete Selected Setup", type="secondary"):
-                row_idx = df[df["setup_name"] == del_name].index[0] + 2
-                delete_row("setups", row_idx)
-                st.success(f"Deleted {del_name}")
-                st.rerun()
+            if st.button("🗑 Delete Selected Setup", type="secondary"):
+                st.session_state["confirm_delete_setup"] = del_name
+            if st.session_state.get("confirm_delete_setup") == del_name:
+                st.warning(f"Are you sure you want to delete **{del_name}**? This cannot be undone.")
+                c_yes, c_no = st.columns(2)
+                with c_yes:
+                    if st.button("✅ Yes, Delete", type="primary", key="confirm_del_setup_yes"):
+                        row_idx = df[df["setup_name"] == del_name].index[0] + 2
+                        delete_row("setups", row_idx)
+                        st.session_state.pop("confirm_delete_setup", None)
+                        st.success(f"Deleted {del_name}")
+                        st.rerun()
+                with c_no:
+                    if st.button("❌ Cancel", key="confirm_del_setup_no"):
+                        st.session_state.pop("confirm_delete_setup", None)
+                        st.rerun()
         else:
             st.info("No setups to delete.")

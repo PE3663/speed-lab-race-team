@@ -126,21 +126,47 @@ SYMPTOM_FIXES = {
         "Reduce cross-weight 0.2-0.5%",
         "Increase LR rebound 1-2 clicks",
     ],
+    "Tight on entry": [
+        "Soften RF shock compression 1-2 clicks",
+        "Reduce LF spring rate 25 lbs",
+        "Increase front stagger slightly",
+        "Lower nose / raise rear ride height",
+    ],
+    "Tight on exit": [
+        "Soften RF spring 25-50 lbs",
+        "Raise panhard bar on left side",
+        "Add rear stagger",
+        "Reduce RR shock rebound 1-2 clicks",
+    ],
+    "Loose / Free in center": [
+        "Stiffen RR spring 25-50 lbs",
+        "Lower panhard bar on right side",
+        "Add cross-weight 0.2-0.5%",
+        "Increase RR rebound 1-2 clicks",
+    ],
+    "Loose on entry": [
+        "Stiffen RF shock compression 1-2 clicks",
+        "Add LF spring rate 25 lbs",
+        "Lower rear ride height 1/4 inch",
+        "Add cross-weight",
+    ],
     "Loose off corner": [
         "Stiffen RR spring 25-50 lbs",
         "Lower panhard bar on right side",
         "Add cross-weight 0.2-0.5%",
         "Increase RR rebound 1-2 clicks",
     ],
-    "Tight on entry": [
-        "Soften RF shock compression 1-2 clicks",
-        "Reduce LF spring rate 25 lbs",
-        "Increase front stagger slightly",
+    "Tight on entry, loose off": [
+        "Soften RF compression, stiffen RR rebound",
+        "Reduce LF spring, stiffen RR spring",
+        "Check cross-weight \u2014 may need small increase",
+        "Adjust panhard bar angle",
     ],
-    "Loose on entry": [
-        "Stiffen RF shock compression 1-2 clicks",
-        "Add LF spring rate 25 lbs",
-        "Lower rear ride height 1/4 inch",
+    "Loose on entry, tight off": [
+        "Stiffen RF compression, soften RR rebound",
+        "Add LF spring, soften RR spring",
+        "Lower rear ride height slightly",
+        "Check trailing arm angle",
     ],
     "No forward bite off corner": [
         "Soften RR spring 25-50 lbs",
@@ -153,6 +179,18 @@ SYMPTOM_FIXES = {
         "Check for worn shocks",
         "Raise ride height if bottoming out",
         "Review spring rates for track conditions",
+    ],
+    "Aero push (high speed)": [
+        "Add front downforce / nose weight",
+        "Lower front ride height",
+        "Stiffen rear springs to plant rear",
+        "Check splitter/valence clearance",
+    ],
+    "Car rolls too much": [
+        "Stiffen sway bar(s)",
+        "Increase spring rates 25-50 lbs all corners",
+        "Lower ride heights",
+        "Add shock compression damping",
     ],
 }
 

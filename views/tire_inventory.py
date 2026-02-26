@@ -197,7 +197,7 @@ def render():
         if not df.empty:
             fc1, fc2, fc3 = st.columns(3)
             with fc1:
-                status_filt = st.selectbox("Status", ["All", "New", "Practice", "Delaware", "Series", "Used", "Scrapped"])
+                status_filt = st.selectbox("Status", ["All", "New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"])
             with fc2:
                 pos_filt = st.selectbox("Position", ["All", "LF", "RF", "LR", "RR", "Spare"])
             with fc3:
@@ -234,9 +234,9 @@ def render():
                     with st.form("edit_tire_form", clear_on_submit=False):
                         ec1, ec2 = st.columns(2)
                         with ec1:
-                            e_status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"], index=["New", "Practice", "Delaware", "Series", "Used", "Scrapped"].index(row.get("status", "New")) if row.get("status", "New") in ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"] else 0)
+                            e_status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"], index=["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"].index(row.get("status", "New")) if row.get("status", "New") in ["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"] else 0)
                             e_position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"], index=["LF", "RF", "LR", "RR", "Spare"].index(row.get("position", "LF")) if row.get("position", "LF") in ["LF", "RF", "LR", "RR", "Spare"] else 0)
-                            e_durometer = st.text_input("Durometer Reading", value=row.get("durometer", ""))
+                            e_durometer = st.text_input("Durometer Reading (Shore A)", value=row.get("durometer", ""))
                             e_mould_mark = st.text_input("Mould Mark", value=row.get("mould_mark", ""))
                         with ec2:
                             e_laps = st.text_input("Laps Run", value=row.get("laps_run", "0"))
@@ -265,17 +265,27 @@ def render():
             if "tire_number" in df.columns:
                 del_sel = st.selectbox("Select tire to delete", df["tire_number"].tolist(), key="del_tire_sel")
                 if st.button("Delete Selected Tire", type="secondary"):
-                    row_idx = df[df["tire_number"] == del_sel].index[0] + 2
-                    delete_row("tires", row_idx)
-                    # Also remove any registrations for this tire
-                    reg_df = read_sheet("tire_reg")
-                    if not reg_df.empty and "tire_number" in reg_df.columns:
-                        reg_matches = reg_df[reg_df["tire_number"] == del_sel]
-                        if not reg_matches.empty:
-                            for ri in sorted(reg_matches.index.tolist(), reverse=True):
-                                delete_row("tire_reg", ri + 2)
-                    st.success(f"Tire '{del_sel}' deleted!")
-                    st.rerun()
+                    st.session_state["confirm_delete_tire"] = del_sel
+                if st.session_state.get("confirm_delete_tire") == del_sel:
+                    st.warning(f"Are you sure you want to delete tire **{del_sel}**? This cannot be undone.")
+                    c_yes, c_no = st.columns(2)
+                    with c_yes:
+                        if st.button("✅ Yes, Delete", type="primary", key="confirm_del_tire_yes"):
+                            row_idx = df[df["tire_number"] == del_sel].index[0] + 2
+                            delete_row("tires", row_idx)
+                            reg_df = read_sheet("tire_reg")
+                            if not reg_df.empty and "tire_number" in reg_df.columns:
+                                reg_matches = reg_df[reg_df["tire_number"] == del_sel]
+                                if not reg_matches.empty:
+                                    for ri in sorted(reg_matches.index.tolist(), reverse=True):
+                                        delete_row("tire_reg", ri + 2)
+                            st.session_state.pop("confirm_delete_tire", None)
+                            st.success(f"Tire '{del_sel}' deleted!")
+                            st.rerun()
+                    with c_no:
+                        if st.button("❌ Cancel", key="confirm_del_tire_no"):
+                            st.session_state.pop("confirm_delete_tire", None)
+                            st.rerun()
         else:
             st.info("No tires in inventory. Add your first tire below.")
 
@@ -354,13 +364,13 @@ def render():
                 finish_size = st.text_input("Finish Size")
             with c2:
                 position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"])
-                status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scrapped"])
+                status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"])
                 assigned_chassis = st.selectbox("Assigned Chassis", [""] + chassis_list)
                 date_purchased = st.date_input("Date Purchased")
             st.markdown("---")
             c3, c4 = st.columns(2)
             with c3:
-                durometer = st.text_input("Durometer Reading")
+                durometer = st.text_input("Durometer Reading (Shore A)")
                 circumference = st.text_input("Circumference / Rollout")
             with c4:
                 laps_run = st.number_input("Laps Run", min_value=0, value=0)

@@ -61,10 +61,21 @@ def render():
             if "part_name" in df.columns:
                 del_name = st.selectbox("Select part to delete", df["part_name"].tolist())
                 if st.button("Delete Selected Part", type="secondary"):
-                    row_idx = df[df["part_name"] == del_name].index[0] + 2
-                    delete_row("parts", row_idx)
-                    st.success(f"Deleted {del_name}")
-                    st.rerun()
+                    st.session_state["confirm_delete_part"] = del_name
+                if st.session_state.get("confirm_delete_part") == del_name:
+                    st.warning(f"Are you sure you want to delete **{del_name}**? This cannot be undone.")
+                    c_yes, c_no = st.columns(2)
+                    with c_yes:
+                        if st.button("✅ Yes, Delete", type="primary", key="confirm_del_part_yes"):
+                            row_idx = df[df["part_name"] == del_name].index[0] + 2
+                            delete_row("parts", row_idx)
+                            st.session_state.pop("confirm_delete_part", None)
+                            st.success(f"Deleted {del_name}")
+                            st.rerun()
+                    with c_no:
+                        if st.button("❌ Cancel", key="confirm_del_part_no"):
+                            st.session_state.pop("confirm_delete_part", None)
+                            st.rerun()
 
     # --- Add Part ---
     with tab2:
@@ -85,7 +96,7 @@ def render():
                 location = st.text_input("Storage Location", placeholder="e.g., Trailer Shelf 2")
             with ac3:
                 supplier = st.text_input("Supplier")
-                cost = st.text_input("Cost per Unit", placeholder="e.g., 24.99")
+                cost = st.number_input("Cost per Unit ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f")
                 notes = st.text_area("Notes", height=100)
 
             if st.form_submit_button("Add Part to Inventory", type="primary"):
@@ -96,7 +107,7 @@ def render():
                         "part_name": part_name, "part_number": part_number,
                         "category": category, "quantity": str(quantity),
                         "min_quantity": str(min_quantity), "location": location,
-                        "supplier": supplier, "cost": cost,
+                        "supplier": supplier, "cost": str(cost),
                         "notes": notes, "created": timestamp_now(),
                     })
                     st.success(f"{part_name} added to inventory!")

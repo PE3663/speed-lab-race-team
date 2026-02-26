@@ -395,10 +395,21 @@ def render():
         df = read_sheet("chassis")
         if not df.empty:
             del_name = st.selectbox("Select chassis to delete", df["chassis_name"].tolist(), key="del_chassis_select")
-            if st.button("\U0001f5d1 Delete Selected Chassis", type="secondary"):
-                row_idx = df[df["chassis_name"] == del_name].index[0] + 2
-                delete_row("chassis", row_idx)
-                st.success(f"Deleted {del_name}")
-                st.rerun()
+            if st.button("🗑 Delete Selected Chassis", type="secondary"):
+                st.session_state["confirm_delete_chassis"] = del_name
+            if st.session_state.get("confirm_delete_chassis") == del_name:
+                st.warning(f"Are you sure you want to delete **{del_name}**? This cannot be undone.")
+                c_yes, c_no = st.columns(2)
+                with c_yes:
+                    if st.button("✅ Yes, Delete", type="primary", key="confirm_del_chassis_yes"):
+                        row_idx = df[df["chassis_name"] == del_name].index[0] + 2
+                        delete_row("chassis", row_idx)
+                        st.session_state.pop("confirm_delete_chassis", None)
+                        st.success(f"Deleted {del_name}")
+                        st.rerun()
+                with c_no:
+                    if st.button("❌ Cancel", key="confirm_del_chassis_no"):
+                        st.session_state.pop("confirm_delete_chassis", None)
+                        st.rerun()
         else:
             st.info("No chassis profiles to delete.")

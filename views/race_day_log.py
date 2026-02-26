@@ -381,7 +381,17 @@ def render():
         st.subheader("Select Race Day")
         hc1, hc2 = st.columns(2)
         with hc1:
-            track = st.selectbox("Track", ["Sauble Speedway", "Flamboro Speedway", "Delaware Speedway", "Other"], key="rd_track")
+            DEFAULT_TRACKS = ["Sauble Speedway", "Flamboro Speedway", "Delaware Speedway", "Sunset Speedway", "Peterborough Speedway", "Jukasa Motor Speedway"]
+            # Build track list from previous race days + defaults
+            try:
+                all_races = read_sheet("race_day")
+                saved_tracks = all_races["track"].unique().tolist() if not all_races.empty and "track" in all_races.columns else []
+            except Exception:
+                saved_tracks = []
+            track_options = sorted(set(DEFAULT_TRACKS + saved_tracks))
+            track = st.selectbox("Track", track_options + ["Other (type below)"], key="rd_track")
+            if track == "Other (type below)":
+                track = st.text_input("Enter track name", key="rd_track_custom")
             race_date = st.date_input("Date", key="rd_date")
         with hc2:
             chassis = st.selectbox("Chassis", chassis_list if chassis_list else [""], key="rd_chassis")

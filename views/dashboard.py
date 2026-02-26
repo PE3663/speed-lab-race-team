@@ -237,13 +237,25 @@ def render():
 
     # ---- Quick links ----
     st.divider()
-    st.subheader("\u26a1 Quick Actions")
+    st.subheader("⚡ Quick Actions")
     qc1, qc2, qc3, qc4 = st.columns(4)
     with qc1:
-        st.markdown("\U0001f527 **Setup Book** \u2014 View and edit chassis setups")
+        if st.button("🔧 Setup Book", use_container_width=True):
+            st.session_state["nav_target"] = "🔧 Setup Book"
+            st.rerun()
+        st.caption("View and edit chassis setups")
     with qc2:
-        st.markdown("\U0001f6de **Tire Inventory** \u2014 Track tire numbers and wear")
+        if st.button("🛷 Tire Inventory", use_container_width=True):
+            st.session_state["nav_target"] = "🛷 Tire Inventory"
+            st.rerun()
+        st.caption("Track tire numbers and wear")
     with qc3:
-        st.markdown("\U0001f6e0\ufe0f **Maintenance** \u2014 Check upcoming tasks")
+        if st.button("🛠️ Maintenance", use_container_width=True):
+            st.session_state["nav_target"] = "🛠️ Maintenance"
+            st.rerun()
+        st.caption("Check upcoming tasks")
     with qc4:
-        st.markdown("\U0001f3ce\ufe0f **Trackside Tuning** \u2014 Get quick recommendations")
+        if st.button("🎯 Trackside Tuning", use_container_width=True):
+            st.session_state["nav_target"] = "🎯 Trackside Tuning"
+            st.rerun()
+        st.caption("Get quick recommendations")

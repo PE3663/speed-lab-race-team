@@ -24,7 +24,8 @@ def check_password():
     try:
         valid_users = dict(st.secrets["passwords"])
     except Exception:
-        valid_users = {"admin": "speedlab2026"}
+        st.error("⚠️ No passwords configured. Add a [passwords] section to Streamlit secrets.")
+        st.stop()
 
     st.markdown(
         """
@@ -72,6 +73,9 @@ with st.sidebar:
         ],
         label_visibility="collapsed",
     )
+    # Allow programmatic page switching from Dashboard quick actions
+    if "nav_target" in st.session_state:
+        page = st.session_state.pop("nav_target")
     st.divider()
     if st.button("Logout", use_container_width=True):
         st.session_state.authenticated = False

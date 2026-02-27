@@ -253,7 +253,7 @@ def tire_temp_block(prefix, label, data):
     temps = {}
     result = {}
     for corner in corners:
-        with st.expander(f"\U0001f321 {corner} Temps", expanded=True):
+        with st.expander(f"\U0001f321 {corner} Temps", expanded=False):
             tc1, tc2, tc3 = st.columns(3)
             with tc1:
                 t_in = st.number_input(f"{corner} Inner", min_value=0.0, max_value=500.0,
@@ -500,7 +500,7 @@ def render():
         corners = ["LF", "RF", "LR", "RR"]
         temps = {}
         for corner in corners:
-            with st.expander(f"\U0001f321 {corner} Temps", expanded=True):
+            with st.expander(f"\U0001f321 {corner} Temps", expanded=False):
                 tc1, tc2, tc3 = st.columns(3)
                 with tc1:
                     t_in = st.number_input(f"{corner} Inner", min_value=0.0, max_value=500.0,

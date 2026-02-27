@@ -225,8 +225,30 @@ def _show_detail(data):
             st.write(notes)
 
 
+def _auto_calc_weights(wlf_s, wrf_s, wlr_s, wrr_s):
+    """Return (total, cross_pct, left_pct) from corner weight strings."""
+    try:
+        wlf = float(wlf_s) if wlf_s else 0.0
+        wrf = float(wrf_s) if wrf_s else 0.0
+        wlr = float(wlr_s) if wlr_s else 0.0
+        wrr = float(wrr_s) if wrr_s else 0.0
+    except (ValueError, TypeError):
+        return "", "", ""
+    total = wlf + wrf + wlr + wrr
+    if total == 0:
+        return "", "", ""
+    cross_pct = (wrf + wlr) / total * 100
+    left_pct = (wlf + wlr) / total * 100
+    return f"{total:.0f}", f"{cross_pct:.1f}", f"{left_pct:.1f}"
+
+
 def _setup_form(data, chassis_list, form_key):
-    """Reusable form for add/edit."""
+    """Reusable form for add/edit with collapsible sections and Quick Entry mode."""
+    # Quick Entry toggle (outside form so it controls what shows)
+    quick_mode = st.toggle("\u26a1 Quick Entry (essentials only)", value=False, key=f"{form_key}_quick")
+    if quick_mode:
+        st.caption("Showing only: Springs, Shocks, Ride Heights, Tire Pressures, Sway Bar, Track Bar")
+
     with st.form(form_key, clear_on_submit=False):
         st.subheader("Basic Info")
         bc1, bc2 = st.columns(2)
@@ -244,148 +266,166 @@ def _setup_form(data, chassis_list, form_key):
                 default_date = dt_date.today()
             setup_date = st.date_input("Date", value=default_date, key=f"{form_key}_date")
 
-        st.divider()
-        st.subheader("\U0001f9f2 Springs")
-        st.markdown("**Main Springs (lbs)**")
-        sp1, sp2, sp3, sp4 = st.columns(4)
+        # ── Springs ──
         spr = {}
-        with sp1:
-            spr['spring_LF'] = st.text_input("LF Spring", value=_v(data, 'spring_LF'), key=f"{form_key}_slf")
-        with sp2:
-            spr['spring_RF'] = st.text_input("RF Spring", value=_v(data, 'spring_RF'), key=f"{form_key}_srf")
-        with sp3:
-            spr['spring_LR'] = st.text_input("LR Spring", value=_v(data, 'spring_LR'), key=f"{form_key}_slr")
-        with sp4:
-            spr['spring_RR'] = st.text_input("RR Spring", value=_v(data, 'spring_RR'), key=f"{form_key}_srr")
+        with st.expander("\U0001f9f2 Springs", expanded=False):
+            st.markdown("**Main Springs (lbs)**")
+            sp1, sp2, sp3, sp4 = st.columns(4)
+            with sp1:
+                spr['spring_LF'] = st.text_input("LF Spring (lbs)", value=_v(data, 'spring_LF'), key=f"{form_key}_slf")
+            with sp2:
+                spr['spring_RF'] = st.text_input("RF Spring (lbs)", value=_v(data, 'spring_RF'), key=f"{form_key}_srf")
+            with sp3:
+                spr['spring_LR'] = st.text_input("LR Spring (lbs)", value=_v(data, 'spring_LR'), key=f"{form_key}_slr")
+            with sp4:
+                spr['spring_RR'] = st.text_input("RR Spring (lbs)", value=_v(data, 'spring_RR'), key=f"{form_key}_srr")
 
-        st.markdown("**Bump Springs (lbs)**")
-        bp1, bp2, bp3, bp4 = st.columns(4)
-        bump = {}
-        with bp1:
-            bump['bump_spring_LF'] = st.text_input("LF Bump", value=_v(data, 'bump_spring_LF'), key=f"{form_key}_blf")
-        with bp2:
-            bump['bump_spring_RF'] = st.text_input("RF Bump", value=_v(data, 'bump_spring_RF'), key=f"{form_key}_brf")
-        with bp3:
-            bump['bump_spring_LR'] = st.text_input("LR Bump", value=_v(data, 'bump_spring_LR'), key=f"{form_key}_blr")
-        with bp4:
-            bump['bump_spring_RR'] = st.text_input("RR Bump", value=_v(data, 'bump_spring_RR'), key=f"{form_key}_brr")
+            st.markdown("**Bump Springs (lbs)**")
+            bp1, bp2, bp3, bp4 = st.columns(4)
+            with bp1:
+                spr['bump_spring_LF'] = st.text_input("LF Bump (lbs)", value=_v(data, 'bump_spring_LF'), key=f"{form_key}_blf")
+            with bp2:
+                spr['bump_spring_RF'] = st.text_input("RF Bump (lbs)", value=_v(data, 'bump_spring_RF'), key=f"{form_key}_brf")
+            with bp3:
+                spr['bump_spring_LR'] = st.text_input("LR Bump (lbs)", value=_v(data, 'bump_spring_LR'), key=f"{form_key}_blr")
+            with bp4:
+                spr['bump_spring_RR'] = st.text_input("RR Bump (lbs)", value=_v(data, 'bump_spring_RR'), key=f"{form_key}_brr")
 
-        st.divider()
-        st.subheader("\U0001f50c Shocks")
-        st.markdown("**Compression**")
-        sc1, sc2, sc3, sc4 = st.columns(4)
+        # ── Shocks ──
         comp = {}
-        with sc1:
-            comp['shock_comp_LF'] = st.text_input("Compression LF", value=_v(data, 'shock_comp_LF'), key=f"{form_key}_sclf")
-        with sc2:
-            comp['shock_comp_RF'] = st.text_input("Compression RF", value=_v(data, 'shock_comp_RF'), key=f"{form_key}_scrf")
-        with sc3:
-            comp['shock_comp_LR'] = st.text_input("Compression LR", value=_v(data, 'shock_comp_LR'), key=f"{form_key}_sclr")
-        with sc4:
-            comp['shock_comp_RR'] = st.text_input("Compression RR", value=_v(data, 'shock_comp_RR'), key=f"{form_key}_scrr")
-        st.markdown("**Rebound**")
-        sr1, sr2, sr3, sr4 = st.columns(4)
         reb = {}
-        with sr1:
-            reb['shock_reb_LF'] = st.text_input("Rebound LF", value=_v(data, 'shock_reb_LF'), key=f"{form_key}_srlf")
-        with sr2:
-            reb['shock_reb_RF'] = st.text_input("Rebound RF", value=_v(data, 'shock_reb_RF'), key=f"{form_key}_srrf")
-        with sr3:
-            reb['shock_reb_LR'] = st.text_input("Rebound LR", value=_v(data, 'shock_reb_LR'), key=f"{form_key}_srlr")
-        with sr4:
-            reb['shock_reb_RR'] = st.text_input("Rebound RR", value=_v(data, 'shock_reb_RR'), key=f"{form_key}_srrr")
+        with st.expander("\U0001f50c Shocks", expanded=False):
+            st.markdown("**Compression**")
+            sc1, sc2, sc3, sc4 = st.columns(4)
+            with sc1:
+                comp['shock_comp_LF'] = st.text_input("Comp LF", value=_v(data, 'shock_comp_LF'), key=f"{form_key}_sclf")
+            with sc2:
+                comp['shock_comp_RF'] = st.text_input("Comp RF", value=_v(data, 'shock_comp_RF'), key=f"{form_key}_scrf")
+            with sc3:
+                comp['shock_comp_LR'] = st.text_input("Comp LR", value=_v(data, 'shock_comp_LR'), key=f"{form_key}_sclr")
+            with sc4:
+                comp['shock_comp_RR'] = st.text_input("Comp RR", value=_v(data, 'shock_comp_RR'), key=f"{form_key}_scrr")
+            st.markdown("**Rebound**")
+            sr1, sr2, sr3, sr4 = st.columns(4)
+            with sr1:
+                reb['shock_reb_LF'] = st.text_input("Reb LF", value=_v(data, 'shock_reb_LF'), key=f"{form_key}_srlf")
+            with sr2:
+                reb['shock_reb_RF'] = st.text_input("Reb RF", value=_v(data, 'shock_reb_RF'), key=f"{form_key}_srrf")
+            with sr3:
+                reb['shock_reb_LR'] = st.text_input("Reb LR", value=_v(data, 'shock_reb_LR'), key=f"{form_key}_srlr")
+            with sr4:
+                reb['shock_reb_RR'] = st.text_input("Reb RR", value=_v(data, 'shock_reb_RR'), key=f"{form_key}_srrr")
 
-        st.divider()
-        st.subheader("\U0001f4cf Ride Heights")
-        rh1, rh2, rh3, rh4 = st.columns(4)
+        # ── Ride Heights ──
         rh = {}
-        with rh1:
-            rh['ride_height_LF'] = st.text_input("LF Ride Height", value=_v(data, 'ride_height_LF'), key=f"{form_key}_rhlf")
-        with rh2:
-            rh['ride_height_RF'] = st.text_input("RF Ride Height", value=_v(data, 'ride_height_RF'), key=f"{form_key}_rhrf")
-        with rh3:
-            rh['ride_height_LR'] = st.text_input("LR Ride Height", value=_v(data, 'ride_height_LR'), key=f"{form_key}_rhlr")
-        with rh4:
-            rh['ride_height_RR'] = st.text_input("RR Ride Height", value=_v(data, 'ride_height_RR'), key=f"{form_key}_rhrr")
+        with st.expander("\U0001f4cf Ride Heights (in)", expanded=False):
+            rh1, rh2, rh3, rh4 = st.columns(4)
+            with rh1:
+                rh['ride_height_LF'] = st.text_input("LF Height (in)", value=_v(data, 'ride_height_LF'), key=f"{form_key}_rhlf")
+            with rh2:
+                rh['ride_height_RF'] = st.text_input("RF Height (in)", value=_v(data, 'ride_height_RF'), key=f"{form_key}_rhrf")
+            with rh3:
+                rh['ride_height_LR'] = st.text_input("LR Height (in)", value=_v(data, 'ride_height_LR'), key=f"{form_key}_rhlr")
+            with rh4:
+                rh['ride_height_RR'] = st.text_input("RR Height (in)", value=_v(data, 'ride_height_RR'), key=f"{form_key}_rhrr")
 
-        st.divider()
-        st.subheader("\U0001f4d0 Alignment")
-        st.markdown("**Camber**")
-        ac1, ac2, ac3, ac4 = st.columns(4)
+        # ── Alignment (skip in Quick Entry) ──
         align = {}
-        with ac1:
-            align['camber_LF'] = st.text_input("LF Camber", value=_v(data, 'camber_LF'), key=f"{form_key}_clf")
-        with ac2:
-            align['camber_RF'] = st.text_input("RF Camber", value=_v(data, 'camber_RF'), key=f"{form_key}_crf")
-        with ac3:
-            align['camber_LR'] = st.text_input("LR Camber", value=_v(data, 'camber_LR'), key=f"{form_key}_clr")
-        with ac4:
-            align['camber_RR'] = st.text_input("RR Camber", value=_v(data, 'camber_RR'), key=f"{form_key}_crr")
-        st.markdown("**Caster**")
-        cas1, cas2 = st.columns(2)
-        with cas1:
-            align['caster_LF'] = st.text_input("LF Caster", value=_v(data, 'caster_LF'), key=f"{form_key}_caslf")
-        with cas2:
-            align['caster_RF'] = st.text_input("RF Caster", value=_v(data, 'caster_RF'), key=f"{form_key}_casrf")
-        toe = st.text_input("Toe (total)", value=_v(data, 'toe'), key=f"{form_key}_toe")
+        toe = _v(data, 'toe')
+        if not quick_mode:
+            with st.expander("\U0001f4d0 Alignment", expanded=False):
+                st.markdown("**Camber (\u00b0)**")
+                ac1, ac2, ac3, ac4 = st.columns(4)
+                with ac1:
+                    align['camber_LF'] = st.text_input("LF Camber (\u00b0)", value=_v(data, 'camber_LF'), key=f"{form_key}_clf")
+                with ac2:
+                    align['camber_RF'] = st.text_input("RF Camber (\u00b0)", value=_v(data, 'camber_RF'), key=f"{form_key}_crf")
+                with ac3:
+                    align['camber_LR'] = st.text_input("LR Camber (\u00b0)", value=_v(data, 'camber_LR'), key=f"{form_key}_clr")
+                with ac4:
+                    align['camber_RR'] = st.text_input("RR Camber (\u00b0)", value=_v(data, 'camber_RR'), key=f"{form_key}_crr")
+                st.markdown("**Caster (\u00b0)**")
+                cas1, cas2 = st.columns(2)
+                with cas1:
+                    align['caster_LF'] = st.text_input("LF Caster (\u00b0)", value=_v(data, 'caster_LF'), key=f"{form_key}_caslf")
+                with cas2:
+                    align['caster_RF'] = st.text_input("RF Caster (\u00b0)", value=_v(data, 'caster_RF'), key=f"{form_key}_casrf")
+                toe = st.text_input("Toe \u2014 total (in)", value=_v(data, 'toe'), key=f"{form_key}_toe")
 
-        st.divider()
-        st.subheader("\u2696\ufe0f Scale Weights")
-        wc1, wc2, wc3, wc4 = st.columns(4)
+        # ── Scale Weights (auto-calc) ──
         wt = {}
-        with wc1:
-            wt['weight_LF'] = st.text_input("LF Weight (lbs)", value=_v(data, 'weight_LF'), key=f"{form_key}_wlf")
-        with wc2:
-            wt['weight_RF'] = st.text_input("RF Weight (lbs)", value=_v(data, 'weight_RF'), key=f"{form_key}_wrf")
-        with wc3:
-            wt['weight_LR'] = st.text_input("LR Weight (lbs)", value=_v(data, 'weight_LR'), key=f"{form_key}_wlr")
-        with wc4:
-            wt['weight_RR'] = st.text_input("RR Weight (lbs)", value=_v(data, 'weight_RR'), key=f"{form_key}_wrr")
-        wc5, wc6, wc7 = st.columns(3)
-        with wc5:
-            wt['weight_left'] = st.text_input("Left (lbs)", value=_v(data, 'weight_left'), key=f"{form_key}_wleft")
-        with wc6:
-            wt['weight_rear'] = st.text_input("Rear (lbs)", value=_v(data, 'weight_rear'), key=f"{form_key}_wrear")
-        with wc7:
-            wt['weight_cross'] = st.text_input("Cross (lbs)", value=_v(data, 'weight_cross'), key=f"{form_key}_wcross")
+        if not quick_mode:
+            with st.expander("\u2696\ufe0f Scale Weights", expanded=False):
+                st.caption("Enter the four corner weights. Total, Cross %, and Left % are calculated automatically.")
+                wc1, wc2, wc3, wc4 = st.columns(4)
+                with wc1:
+                    wt['weight_LF'] = st.text_input("LF Weight (lbs)", value=_v(data, 'weight_LF'), key=f"{form_key}_wlf")
+                with wc2:
+                    wt['weight_RF'] = st.text_input("RF Weight (lbs)", value=_v(data, 'weight_RF'), key=f"{form_key}_wrf")
+                with wc3:
+                    wt['weight_LR'] = st.text_input("LR Weight (lbs)", value=_v(data, 'weight_LR'), key=f"{form_key}_wlr")
+                with wc4:
+                    wt['weight_RR'] = st.text_input("RR Weight (lbs)", value=_v(data, 'weight_RR'), key=f"{form_key}_wrr")
+                # Auto-calculated read-only display
+                total_s, cross_s, left_s = _auto_calc_weights(
+                    wt.get('weight_LF', ''), wt.get('weight_RF', ''),
+                    wt.get('weight_LR', ''), wt.get('weight_RR', ''))
+                if total_s:
+                    ac1, ac2, ac3 = st.columns(3)
+                    ac1.metric("Total Weight", f"{total_s} lbs")
+                    ac2.metric("Cross Weight", f"{cross_s}%")
+                    ac3.metric("Left Side", f"{left_s}%")
+                else:
+                    st.info("Enter corner weights above to see totals.")
 
-        st.divider()
-        st.subheader("\U0001f3ce\ufe0f Chassis & Drivetrain")
-        cc1, cc2, cc3 = st.columns(3)
-        with cc1:
-            gear_ratio = st.text_input("Gear Ratio", value=_v(data, 'gear_ratio'), key=f"{form_key}_gr")
-        with cc2:
-            sway_bar = st.text_input("Sway Bar", value=_v(data, 'sway_bar'), key=f"{form_key}_sw")
-        with cc3:
-            track_bar = st.text_input("Track Bar Height", value=_v(data, 'track_bar'), key=f"{form_key}_tb")
-        tc1, tc2 = st.columns(2)
-        with tc1:
-            panhard = st.text_input("Panhard Bar", value=_v(data, 'panhard'), key=f"{form_key}_pan")
-            trailing_arm = st.text_input("Trailing Arm Angle", value=_v(data, 'trailing_arm'), key=f"{form_key}_ta")
-        with tc2:
-            stagger = st.text_input("Stagger", value=_v(data, 'stagger'), key=f"{form_key}_stag")
+        # ── Chassis & Drivetrain ──
+        gear_ratio = _v(data, 'gear_ratio')
+        panhard = _v(data, 'panhard')
+        trailing_arm = _v(data, 'trailing_arm')
+        stagger = _v(data, 'stagger')
+        with st.expander("\U0001f3ce\ufe0f Chassis & Drivetrain", expanded=False):
+            cc1, cc2, cc3 = st.columns(3)
+            with cc1:
+                gear_ratio = st.text_input("Gear Ratio", value=_v(data, 'gear_ratio'), key=f"{form_key}_gr")
+            with cc2:
+                sway_bar = st.text_input("Sway Bar", value=_v(data, 'sway_bar'), key=f"{form_key}_sw")
+            with cc3:
+                track_bar = st.text_input("Track Bar Height", value=_v(data, 'track_bar'), key=f"{form_key}_tb")
+            if not quick_mode:
+                tc1, tc2 = st.columns(2)
+                with tc1:
+                    panhard = st.text_input("Panhard Bar", value=_v(data, 'panhard'), key=f"{form_key}_pan")
+                    trailing_arm = st.text_input("Trailing Arm Angle", value=_v(data, 'trailing_arm'), key=f"{form_key}_ta")
+                with tc2:
+                    stagger = st.text_input("Stagger", value=_v(data, 'stagger'), key=f"{form_key}_stag")
 
-        st.markdown("**Tire Pressures**")
-        tp1, tp2, tp3, tp4 = st.columns(4)
+        # ── Tire Pressures ──
         tp_vals = {}
-        with tp1:
-            tp_vals['tire_pres_LF'] = st.text_input("LF Pressure", value=_v(data, 'tire_pres_LF'), key=f"{form_key}_tp_lf")
-        with tp2:
-            tp_vals['tire_pres_RF'] = st.text_input("RF Pressure", value=_v(data, 'tire_pres_RF'), key=f"{form_key}_tp_rf")
-        with tp3:
-            tp_vals['tire_pres_LR'] = st.text_input("LR Pressure", value=_v(data, 'tire_pres_LR'), key=f"{form_key}_tp_lr")
-        with tp4:
-            tp_vals['tire_pres_RR'] = st.text_input("RR Pressure", value=_v(data, 'tire_pres_RR'), key=f"{form_key}_tp_rr")
+        with st.expander("\U0001f3ce\ufe0f Tire Pressures (psi)", expanded=False):
+            tp1, tp2, tp3, tp4 = st.columns(4)
+            with tp1:
+                tp_vals['tire_pres_LF'] = st.text_input("LF Pressure (psi)", value=_v(data, 'tire_pres_LF'), key=f"{form_key}_tp_lf")
+            with tp2:
+                tp_vals['tire_pres_RF'] = st.text_input("RF Pressure (psi)", value=_v(data, 'tire_pres_RF'), key=f"{form_key}_tp_rf")
+            with tp3:
+                tp_vals['tire_pres_LR'] = st.text_input("LR Pressure (psi)", value=_v(data, 'tire_pres_LR'), key=f"{form_key}_tp_lr")
+            with tp4:
+                tp_vals['tire_pres_RR'] = st.text_input("RR Pressure (psi)", value=_v(data, 'tire_pres_RR'), key=f"{form_key}_tp_rr")
 
-        st.divider()
         notes = st.text_area("Setup Notes", value=_v(data, 'notes'), key=f"{form_key}_notes")
 
         submitted = st.form_submit_button("\U0001f4be Save Setup", type="primary")
 
+    # Build the save dict — auto-calc weight fields
+    total_s, cross_s, left_s = _auto_calc_weights(
+        wt.get('weight_LF', ''), wt.get('weight_RF', ''),
+        wt.get('weight_LR', ''), wt.get('weight_RR', ''))
+
     return submitted, {
         "chassis": chassis, "setup_name": setup_name, "date": str(setup_date),
-        **spr, **bump, **comp, **reb, **rh, **align,
+        **spr, **comp, **reb, **rh, **align,
         "toe": toe, **wt,
+        "weight_left": left_s, "weight_rear": "", "weight_cross": cross_s,
         "gear_ratio": gear_ratio, "sway_bar": sway_bar, "track_bar": track_bar,
         "panhard": panhard, "trailing_arm": trailing_arm,
         **tp_vals, "stagger": stagger,

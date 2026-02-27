@@ -265,105 +265,123 @@ def render():
                         index=["Pro Late Model","Super Stock","Bone Stock","Mini Stock","Other"].index(_v(data,'car_class','Pro Late Model')),
                         key="cf_class")
                     year = st.text_input("Year / Make", value=_v(data, 'year_make'), key="cf_year")
-    
-                st.divider()
-                st.subheader("\u2696\ufe0f Corner Weights (lbs)")
-                cw1, cw2, cw3, cw4 = st.columns(4)
-                with cw1:
-                    wlf = st.text_input("LF Weight", value=_v(data, 'weight_lf'), key="cf_wlf")
-                with cw2:
-                    wrf = st.text_input("RF Weight", value=_v(data, 'weight_rf'), key="cf_wrf")
-                with cw3:
-                    wlr = st.text_input("LR Weight", value=_v(data, 'weight_lr'), key="cf_wlr")
-                with cw4:
-                    wrr = st.text_input("RR Weight", value=_v(data, 'weight_rr'), key="cf_wrr")
-    
-                st.divider()
-                st.subheader("\U0001f4cf Ride Heights")
-                rh1, rh2, rh3, rh4 = st.columns(4)
-                with rh1:
-                    rh_lf = st.text_input("LF Ride Height", value=_v(data, 'ride_height_lf'), key="cf_rhlf")
-                with rh2:
-                    rh_rf = st.text_input("RF Ride Height", value=_v(data, 'ride_height_rf'), key="cf_rhrf")
-                with rh3:
-                    rh_lr = st.text_input("LR Ride Height", value=_v(data, 'ride_height_lr'), key="cf_rhlr")
-                with rh4:
-                    rh_rr = st.text_input("RR Ride Height", value=_v(data, 'ride_height_rr'), key="cf_rhrr")
-    
-                st.divider()
-                st.subheader("\U0001f9f2 Springs & Shocks")
-                st.markdown("**Springs (lbs)**")
-                sp1, sp2, sp3, sp4 = st.columns(4)
-                with sp1:
-                    s_lf = st.text_input("LF Spring", value=_v(data, 'spring_lf'), key="cf_slf")
-                with sp2:
-                    s_rf = st.text_input("RF Spring", value=_v(data, 'spring_rf'), key="cf_srf")
-                with sp3:
-                    s_lr = st.text_input("LR Spring", value=_v(data, 'spring_lr'), key="cf_slr")
-                with sp4:
-                    s_rr = st.text_input("RR Spring", value=_v(data, 'spring_rr'), key="cf_srr")
-                st.markdown("**Shocks**")
-                sh1, sh2, sh3, sh4 = st.columns(4)
-                with sh1:
-                    sk_lf = st.text_input("LF Shock", value=_v(data, 'shock_lf'), key="cf_sklf")
-                with sh2:
-                    sk_rf = st.text_input("RF Shock", value=_v(data, 'shock_rf'), key="cf_skrf")
-                with sh3:
-                    sk_lr = st.text_input("LR Shock", value=_v(data, 'shock_lr'), key="cf_sklr")
-                with sh4:
-                    sk_rr = st.text_input("RR Shock", value=_v(data, 'shock_rr'), key="cf_skrr")
-    
-                st.divider()
-                st.subheader("\U0001f4d0 Suspension Geometry")
-                st.markdown("**Camber**")
-                cam1, cam2, cam3, cam4 = st.columns(4)
-                with cam1:
-                    cam_lf = st.text_input("LF Camber", value=_v(data, 'camber_lf'), key="cf_camlf")
-                with cam2:
-                    cam_rf = st.text_input("RF Camber", value=_v(data, 'camber_rf'), key="cf_camrf")
-                with cam3:
-                    cam_lr = st.text_input("LR Camber", value=_v(data, 'camber_lr'), key="cf_camlr")
-                with cam4:
-                    cam_rr = st.text_input("RR Camber", value=_v(data, 'camber_rr'), key="cf_camrr")
-                st.markdown("**Caster**")
-                cas1, cas2 = st.columns(2)
-                with cas1:
-                    cas_lf = st.text_input("LF Caster", value=_v(data, 'caster_lf'), key="cf_caslf")
-                with cas2:
-                    cas_rf = st.text_input("RF Caster", value=_v(data, 'caster_rf'), key="cf_casrf")
-                st.markdown("**Toe**")
-                toe1, toe2 = st.columns(2)
-                with toe1:
-                    toe_f = st.text_input("Front Toe", value=_v(data, 'toe_front'), key="cf_toef")
-                with toe2:
-                    toe_r = st.text_input("Rear Toe", value=_v(data, 'toe_rear'), key="cf_toer")
-    
-                st.divider()
-                st.subheader("\U0001f517 Sway Bars")
-                swb1, swb2 = st.columns(2)
-                with swb1:
-                    sw_f = st.text_input("Front Sway Bar", value=_v(data, 'sway_bar_front'), key="cf_swf")
-                with swb2:
-                    sw_r = st.text_input("Rear Sway Bar", value=_v(data, 'sway_bar_rear'), key="cf_swr")
-    
-                st.divider()
-                st.subheader("\U0001f4d0 Dimensions & Drivetrain")
-                dm1, dm2, dm3 = st.columns(3)
-                with dm1:
-                    wb = st.text_input("Wheelbase", value=_v(data, 'wheelbase'), key="cf_wb")
-                with dm2:
-                    tw_f = st.text_input("Front Track Width", value=_v(data, 'track_width_front'), key="cf_twf")
-                with dm3:
-                    tw_r = st.text_input("Rear Track Width", value=_v(data, 'track_width_rear'), key="cf_twr")
-                dt1, dt2 = st.columns(2)
-                with dt1:
-                    gr = st.text_input("Gear Ratio", value=_v(data, 'gear_ratio'), key="cf_gr")
-                with dt2:
-                    pa = st.text_input("Pinion Angle", value=_v(data, 'pinion_angle'), key="cf_pa")
-    
-                st.divider()
+
+                # ── Corner Weights (auto-calc) ──
+                with st.expander("\u2696\ufe0f Corner Weights (lbs)", expanded=False):
+                    st.caption("Enter the four corner weights. Total, Cross %, and Left % are calculated automatically.")
+                    cw1, cw2, cw3, cw4 = st.columns(4)
+                    with cw1:
+                        wlf = st.text_input("LF Weight (lbs)", value=_v(data, 'weight_lf'), key="cf_wlf")
+                    with cw2:
+                        wrf = st.text_input("RF Weight (lbs)", value=_v(data, 'weight_rf'), key="cf_wrf")
+                    with cw3:
+                        wlr = st.text_input("LR Weight (lbs)", value=_v(data, 'weight_lr'), key="cf_wlr")
+                    with cw4:
+                        wrr = st.text_input("RR Weight (lbs)", value=_v(data, 'weight_rr'), key="cf_wrr")
+                    # Auto-calculated display
+                    try:
+                        _wlf = float(wlf) if wlf else 0.0
+                        _wrf = float(wrf) if wrf else 0.0
+                        _wlr = float(wlr) if wlr else 0.0
+                        _wrr = float(wrr) if wrr else 0.0
+                    except (ValueError, TypeError):
+                        _wlf = _wrf = _wlr = _wrr = 0.0
+                    _total = _wlf + _wrf + _wlr + _wrr
+                    if _total > 0:
+                        _cross_pct = (_wrf + _wlr) / _total * 100
+                        _left_pct = (_wlf + _wlr) / _total * 100
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric("Total Weight", f"{_total:.0f} lbs")
+                        m2.metric("Cross Weight", f"{_cross_pct:.1f}%")
+                        m3.metric("Left Side", f"{_left_pct:.1f}%")
+                    else:
+                        st.info("Enter corner weights above to see totals.")
+
+                # ── Ride Heights ──
+                with st.expander("\U0001f4cf Ride Heights (in)", expanded=False):
+                    rh1, rh2, rh3, rh4 = st.columns(4)
+                    with rh1:
+                        rh_lf = st.text_input("LF Height (in)", value=_v(data, 'ride_height_lf'), key="cf_rhlf")
+                    with rh2:
+                        rh_rf = st.text_input("RF Height (in)", value=_v(data, 'ride_height_rf'), key="cf_rhrf")
+                    with rh3:
+                        rh_lr = st.text_input("LR Height (in)", value=_v(data, 'ride_height_lr'), key="cf_rhlr")
+                    with rh4:
+                        rh_rr = st.text_input("RR Height (in)", value=_v(data, 'ride_height_rr'), key="cf_rhrr")
+
+                # ── Springs & Shocks ──
+                with st.expander("\U0001f9f2 Springs & Shocks", expanded=False):
+                    st.markdown("**Springs (lbs)**")
+                    sp1, sp2, sp3, sp4 = st.columns(4)
+                    with sp1:
+                        s_lf = st.text_input("LF Spring (lbs)", value=_v(data, 'spring_lf'), key="cf_slf")
+                    with sp2:
+                        s_rf = st.text_input("RF Spring (lbs)", value=_v(data, 'spring_rf'), key="cf_srf")
+                    with sp3:
+                        s_lr = st.text_input("LR Spring (lbs)", value=_v(data, 'spring_lr'), key="cf_slr")
+                    with sp4:
+                        s_rr = st.text_input("RR Spring (lbs)", value=_v(data, 'spring_rr'), key="cf_srr")
+                    st.markdown("**Shocks**")
+                    sh1, sh2, sh3, sh4 = st.columns(4)
+                    with sh1:
+                        sk_lf = st.text_input("LF Shock", value=_v(data, 'shock_lf'), key="cf_sklf")
+                    with sh2:
+                        sk_rf = st.text_input("RF Shock", value=_v(data, 'shock_rf'), key="cf_skrf")
+                    with sh3:
+                        sk_lr = st.text_input("LR Shock", value=_v(data, 'shock_lr'), key="cf_sklr")
+                    with sh4:
+                        sk_rr = st.text_input("RR Shock", value=_v(data, 'shock_rr'), key="cf_skrr")
+
+                # ── Suspension Geometry ──
+                with st.expander("\U0001f4d0 Suspension Geometry", expanded=False):
+                    st.markdown("**Camber (\u00b0)**")
+                    cam1, cam2, cam3, cam4 = st.columns(4)
+                    with cam1:
+                        cam_lf = st.text_input("LF Camber (\u00b0)", value=_v(data, 'camber_lf'), key="cf_camlf")
+                    with cam2:
+                        cam_rf = st.text_input("RF Camber (\u00b0)", value=_v(data, 'camber_rf'), key="cf_camrf")
+                    with cam3:
+                        cam_lr = st.text_input("LR Camber (\u00b0)", value=_v(data, 'camber_lr'), key="cf_camlr")
+                    with cam4:
+                        cam_rr = st.text_input("RR Camber (\u00b0)", value=_v(data, 'camber_rr'), key="cf_camrr")
+                    st.markdown("**Caster (\u00b0)**")
+                    cas1, cas2 = st.columns(2)
+                    with cas1:
+                        cas_lf = st.text_input("LF Caster (\u00b0)", value=_v(data, 'caster_lf'), key="cf_caslf")
+                    with cas2:
+                        cas_rf = st.text_input("RF Caster (\u00b0)", value=_v(data, 'caster_rf'), key="cf_casrf")
+                    st.markdown("**Toe (in)**")
+                    toe1, toe2 = st.columns(2)
+                    with toe1:
+                        toe_f = st.text_input("Front Toe (in)", value=_v(data, 'toe_front'), key="cf_toef")
+                    with toe2:
+                        toe_r = st.text_input("Rear Toe (in)", value=_v(data, 'toe_rear'), key="cf_toer")
+
+                # ── Sway Bars ──
+                with st.expander("\U0001f517 Sway Bars", expanded=False):
+                    swb1, swb2 = st.columns(2)
+                    with swb1:
+                        sw_f = st.text_input("Front Sway Bar", value=_v(data, 'sway_bar_front'), key="cf_swf")
+                    with swb2:
+                        sw_r = st.text_input("Rear Sway Bar", value=_v(data, 'sway_bar_rear'), key="cf_swr")
+
+                # ── Dimensions & Drivetrain ──
+                with st.expander("\U0001f4d0 Dimensions & Drivetrain", expanded=False):
+                    dm1, dm2, dm3 = st.columns(3)
+                    with dm1:
+                        wb = st.text_input("Wheelbase (in)", value=_v(data, 'wheelbase'), key="cf_wb")
+                    with dm2:
+                        tw_f = st.text_input("Front Track Width (in)", value=_v(data, 'track_width_front'), key="cf_twf")
+                    with dm3:
+                        tw_r = st.text_input("Rear Track Width (in)", value=_v(data, 'track_width_rear'), key="cf_twr")
+                    dt1, dt2 = st.columns(2)
+                    with dt1:
+                        gr = st.text_input("Gear Ratio", value=_v(data, 'gear_ratio'), key="cf_gr")
+                    with dt2:
+                        pa = st.text_input("Pinion Angle (\u00b0)", value=_v(data, 'pinion_angle'), key="cf_pa")
+
                 notes = st.text_area("Notes", value=_v(data, 'notes'), key="cf_notes")
-    
+
                 if st.form_submit_button("\U0001f4be Save Chassis", type="primary"):
                     if not name:
                         st.error("Chassis name is required.")

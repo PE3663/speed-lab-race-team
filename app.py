@@ -2,7 +2,7 @@ import streamlit as st
 from utils.gsheet_db import check_credentials, seed_admin_if_empty
 
 # -- Speed Lab App --
-# Main entry point
+# Main entry point with multi-user authentication
 # Uses views/ directory for page modules (not pages/ to avoid Streamlit auto-nav)
 
 st.set_page_config(

@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from utils.gsheet_db import read_sheet, append_row, update_row, delete_row, timestamp_now
+from utils.auth import can_edit, can_delete
 
 
 def render():
@@ -9,10 +10,14 @@ def render():
 
     df = read_sheet("parts")
 
-    tab1, tab2 = st.tabs(["Inventory List", "Add Part"])
+    tab_labels = ["Inventory List"]
+    if can_edit():
+        tab_labels.append("Add Part")
+    tabs = st.tabs(tab_labels)
+    tab_idx = 0
 
     # --- Inventory List ---
-    with tab1:
+    with tabs[tab_idx]:
         if df.empty:
             st.info("No parts in inventory yet. Add your first part!")
         else:
@@ -58,7 +63,7 @@ def render():
 
             # Delete section
             st.divider()
-            if "part_name" in df.columns:
+            if can_delete() and "part_name" in df.columns:
                 del_name = st.selectbox("Select part to delete", df["part_name"].tolist())
                 if st.button("Delete Selected Part", type="secondary"):
                     st.session_state["confirm_delete_part"] = del_name
@@ -77,38 +82,40 @@ def render():
                             st.session_state.pop("confirm_delete_part", None)
                             st.rerun()
 
-    # --- Add Part ---
-    with tab2:
-        with st.form("add_part", clear_on_submit=True):
-            st.subheader("Add New Part")
-            ac1, ac2, ac3 = st.columns(3)
-            with ac1:
-                part_name = st.text_input("Part Name *")
-                part_number = st.text_input("Part Number")
-                category = st.selectbox("Category", [
-                    "Engine", "Suspension", "Brakes", "Drivetrain",
-                    "Electrical", "Body/Aero", "Safety", "Consumables",
-                    "Hardware", "Other"
-                ])
-            with ac2:
-                quantity = st.number_input("Quantity", min_value=0, value=1)
-                min_quantity = st.number_input("Minimum Stock Level", min_value=0, value=1)
-                location = st.text_input("Storage Location", placeholder="e.g., Trailer Shelf 2")
-            with ac3:
-                supplier = st.text_input("Supplier")
-                cost = st.number_input("Cost per Unit ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f")
-                notes = st.text_area("Notes", height=100)
+    # --- Add Part (only if can_edit) ---
+    if can_edit():
+        tab_idx += 1
+        with tabs[tab_idx]:
+            with st.form("add_part", clear_on_submit=True):
+                st.subheader("Add New Part")
+                ac1, ac2, ac3 = st.columns(3)
+                with ac1:
+                    part_name = st.text_input("Part Name *")
+                    part_number = st.text_input("Part Number")
+                    category = st.selectbox("Category", [
+                        "Engine", "Suspension", "Brakes", "Drivetrain",
+                        "Electrical", "Body/Aero", "Safety", "Consumables",
+                        "Hardware", "Other"
+                    ])
+                with ac2:
+                    quantity = st.number_input("Quantity", min_value=0, value=1)
+                    min_quantity = st.number_input("Minimum Stock Level", min_value=0, value=1)
+                    location = st.text_input("Storage Location", placeholder="e.g., Trailer Shelf 2")
+                with ac3:
+                    supplier = st.text_input("Supplier")
+                    cost = st.number_input("Cost per Unit ($)", min_value=0.0, value=0.0, step=0.01, format="%.2f")
+                    notes = st.text_area("Notes", height=100)
 
-            if st.form_submit_button("Add Part to Inventory", type="primary"):
-                if not part_name:
-                    st.error("Part name is required.")
-                else:
-                    append_row("parts", {
-                        "part_name": part_name, "part_number": part_number,
-                        "category": category, "quantity": str(quantity),
-                        "min_quantity": str(min_quantity), "location": location,
-                        "supplier": supplier, "cost": str(cost),
-                        "notes": notes, "created": timestamp_now(),
-                    })
-                    st.success(f"{part_name} added to inventory!")
-                    st.rerun()
+                if st.form_submit_button("Add Part to Inventory", type="primary"):
+                    if not part_name:
+                        st.error("Part name is required.")
+                    else:
+                        append_row("parts", {
+                            "part_name": part_name, "part_number": part_number,
+                            "category": category, "quantity": str(quantity),
+                            "min_quantity": str(min_quantity), "location": location,
+                            "supplier": supplier, "cost": str(cost),
+                            "notes": notes, "created": timestamp_now(),
+                        })
+                        st.success(f"{part_name} added to inventory!")
+                        st.rerun()

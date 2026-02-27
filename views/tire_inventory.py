@@ -33,8 +33,10 @@ def _build_tire_list_text(category, tire_numbers_list, driver_name, car_number, 
     return "\n".join(lines)
 
 
+
 # --- Helper: render a registration category tab ---
 def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
+    from utils.auth import can_edit, can_delete
     cat_data = reg_df[reg_df["category"] == category] if not reg_df.empty and "category" in reg_df.columns else None
     if cat_data is not None and not cat_data.empty:
         display_cols = [c for c in ["tire_number", "track_or_series", "notes", "registered_date"] if c in cat_data.columns]
@@ -132,44 +134,47 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
     if st.session_state.get(scan_key):
         st.success(f"Scanned: **{st.session_state[scan_key]}** -- pre-filled below")
 
-    with st.form(f"reg_{tab_key}_form", clear_on_submit=True):
-        st.markdown(f"**Register a Tire for {category}**")
-        rc1, rc2 = st.columns(2)
-        with rc1:
-            if tire_numbers:
-                sel_tire = st.selectbox("Select Tire from Inventory", [""] + tire_numbers, key=f"{tab_key}_tire_inv")
-                man_tire = st.text_input("Or enter tire number manually", value=st.session_state.get(scan_key, ""), key=f"{tab_key}_tire_manual")
-            else:
-                sel_tire = ""
-                man_tire = st.text_input("Tire Number / Serial",  value=st.session_state.get(scan_key, ""),key=f"{tab_key}_tire_manual")
-        with rc2:
-            loc_name = st.text_input("Track / Series Name", key=f"{tab_key}_loc_name")
-            reg_notes = st.text_input("Notes (optional)", key=f"{tab_key}_reg_notes")
-        rc3, rc4 = st.columns(2)
-        with rc3:
-            reg_mould = st.text_input("Mould Mark", key=f"{tab_key}_mould")
-        with rc4:
-            reg_finish = st.text_input("Finish Size", key=f"{tab_key}_finish")
-        if st.form_submit_button(f"Register for {category}", type="primary"):
-            final_tire = sel_tire if sel_tire else man_tire
-            if not final_tire:
-                st.error("Enter or select a tire number.")
-            elif not loc_name:
-                st.error("Enter a track or series name.")
-            else:
-                append_row("tire_reg", {
-                    "tire_number": final_tire,
-                    "category": category,
-                    "track_or_series": loc_name,
-                    "mould_mark": reg_mould,
-                    "finish_size": reg_finish,
-                    "notes": reg_notes,
-                    "registered_date": timestamp_now(),
-                })
-                st.success(f"Tire '{final_tire}' registered for {category}!")
-                st.rerun()
+    if can_edit():
+        with st.form(f"reg_{tab_key}_form", clear_on_submit=True):
+            st.markdown(f"**Register a Tire for {category}**")
+            rc1, rc2 = st.columns(2)
+            with rc1:
+                if tire_numbers:
+                    sel_tire = st.selectbox("Select Tire from Inventory", [""] + tire_numbers, key=f"{tab_key}_tire_inv")
+                    man_tire = st.text_input("Or enter tire number manually", value=st.session_state.get(scan_key, ""), key=f"{tab_key}_tire_manual")
+                else:
+                    sel_tire = ""
+                    man_tire = st.text_input("Tire Number / Serial",  value=st.session_state.get(scan_key, ""),key=f"{tab_key}_tire_manual")
+            with rc2:
+                loc_name = st.text_input("Track / Series Name", key=f"{tab_key}_loc_name")
+                reg_notes = st.text_input("Notes (optional)", key=f"{tab_key}_reg_notes")
+            rc3, rc4 = st.columns(2)
+            with rc3:
+                reg_mould = st.text_input("Mould Mark", key=f"{tab_key}_mould")
+            with rc4:
+                reg_finish = st.text_input("Finish Size", key=f"{tab_key}_finish")
+            if st.form_submit_button(f"Register for {category}", type="primary"):
+                final_tire = sel_tire if sel_tire else man_tire
+                if not final_tire:
+                    st.error("Enter or select a tire number.")
+                elif not loc_name:
+                    st.error("Enter a track or series name.")
+                else:
+                    append_row("tire_reg", {
+                        "tire_number": final_tire,
+                        "category": category,
+                        "track_or_series": loc_name,
+                        "mould_mark": reg_mould,
+                        "finish_size": reg_finish,
+                        "notes": reg_notes,
+                        "registered_date": timestamp_now(),
+                    })
+                    st.success(f"Tire '{final_tire}' registered for {category}!")
+                    st.rerun()
+    else:
+        st.info("You have view-only access. Contact an admin to register tires.")
 
-    if cat_data is not None and not cat_data.empty and "tire_number" in cat_data.columns:
+    if can_delete() and cat_data is not None and not cat_data.empty and "tire_number" in cat_data.columns:
         st.markdown("---")
         del_labels = []
         del_indices = []
@@ -186,13 +191,19 @@ def _reg_tab(category, icon, reg_df, tire_numbers, tab_key, tires_df=None):
             st.rerun()
 
 def render():
+    from utils.auth import can_edit, can_delete
     st.header("\U0001f6a2 Tire Inventory")
-    tab1, tab2, tab3 = st.tabs(["View Tires", "Registered Tires", "Add New Tire"])
+
+    tab_labels = ["View Tires", "Registered Tires"]
+    if can_edit():
+        tab_labels.append("Add New Tire")
+    tabs = st.tabs(tab_labels)
+    tab_idx = 0
 
     # ==============================================
     # TAB 1 -- View Tires (Inventory)
     # ==============================================
-    with tab1:
+    with tabs[tab_idx]:
         df = read_sheet("tires")
         if not df.empty:
             fc1, fc2, fc3 = st.columns(3)
@@ -222,77 +233,80 @@ def render():
             with sc4:
                 st.metric("Used", len(df[df["status"] == "Used"]) if "status" in df.columns else 0)
 
-            # --- Edit Tire ---
-            st.divider()
-            st.subheader("Edit Tire")
-            if "tire_number" in df.columns:
-                edit_labels = df["tire_number"].tolist()
-                edit_sel = st.selectbox("Select tire to edit", edit_labels, key="edit_tire_sel")
-                if edit_sel:
-                    row_idx = df[df["tire_number"] == edit_sel].index[0]
-                    row = df.iloc[row_idx]
-                    with st.form("edit_tire_form", clear_on_submit=False):
-                        ec1, ec2 = st.columns(2)
-                        with ec1:
-                            e_status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"], index=["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"].index(row.get("status", "New")) if row.get("status", "New") in ["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"] else 0)
-                            e_position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"], index=["LF", "RF", "LR", "RR", "Spare"].index(row.get("position", "LF")) if row.get("position", "LF") in ["LF", "RF", "LR", "RR", "Spare"] else 0)
-                            e_durometer = st.text_input("Durometer Reading (Shore A)", value=row.get("durometer", ""))
-                            e_mould_mark = st.text_input("Mould Mark", value=row.get("mould_mark", ""))
-                        with ec2:
-                            e_laps = st.text_input("Laps Run", value=row.get("laps_run", "0"))
-                            e_races = st.text_input("Races Run", value=row.get("races_run", "0"))
-                            e_circumference = st.text_input("Circumference / Rollout", value=row.get("circumference", ""))
-                            e_finish_size = st.text_input("Finish Size", value=row.get("finish_size", ""))
-                        e_notes = st.text_area("Notes", value=row.get("notes", ""))
-                        if st.form_submit_button("Update Tire", type="primary"):
-                            updated = row.to_dict()
-                            updated["status"] = e_status
-                            updated["position"] = e_position
-                            updated["durometer"] = e_durometer
-                            updated["laps_run"] = e_laps
-                            updated["races_run"] = e_races
-                            updated["circumference"] = e_circumference
-                            updated["mould_mark"] = e_mould_mark
-                            updated["finish_size"] = e_finish_size
-                            updated["notes"] = e_notes
-                            update_row("tires", row_idx + 2, updated)
-                            st.success(f"Tire '{edit_sel}' updated!")
-                            st.rerun()
+            # --- Edit Tire (admin/crew only) ---
+            if can_edit():
+                st.divider()
+                st.subheader("Edit Tire")
+                if "tire_number" in df.columns:
+                    edit_labels = df["tire_number"].tolist()
+                    edit_sel = st.selectbox("Select tire to edit", edit_labels, key="edit_tire_sel")
+                    if edit_sel:
+                        row_idx = df[df["tire_number"] == edit_sel].index[0]
+                        row = df.iloc[row_idx]
+                        with st.form("edit_tire_form", clear_on_submit=False):
+                            ec1, ec2 = st.columns(2)
+                            with ec1:
+                                e_status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"], index=["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"].index(row.get("status", "New")) if row.get("status", "New") in ["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"] else 0)
+                                e_position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"], index=["LF", "RF", "LR", "RR", "Spare"].index(row.get("position", "LF")) if row.get("position", "LF") in ["LF", "RF", "LR", "RR", "Spare"] else 0)
+                                e_durometer = st.text_input("Durometer Reading (Shore A)", value=row.get("durometer", ""))
+                                e_mould_mark = st.text_input("Mould Mark", value=row.get("mould_mark", ""))
+                            with ec2:
+                                e_laps = st.text_input("Laps Run", value=row.get("laps_run", "0"))
+                                e_races = st.text_input("Races Run", value=row.get("races_run", "0"))
+                                e_circumference = st.text_input("Circumference / Rollout", value=row.get("circumference", ""))
+                                e_finish_size = st.text_input("Finish Size", value=row.get("finish_size", ""))
+                            e_notes = st.text_area("Notes", value=row.get("notes", ""))
+                            if st.form_submit_button("Update Tire", type="primary"):
+                                updated = row.to_dict()
+                                updated["status"] = e_status
+                                updated["position"] = e_position
+                                updated["durometer"] = e_durometer
+                                updated["laps_run"] = e_laps
+                                updated["races_run"] = e_races
+                                updated["circumference"] = e_circumference
+                                updated["mould_mark"] = e_mould_mark
+                                updated["finish_size"] = e_finish_size
+                                updated["notes"] = e_notes
+                                update_row("tires", row_idx + 2, updated)
+                                st.success(f"Tire '{edit_sel}' updated!")
+                                st.rerun()
 
-            # --- Delete Tire ---
-            st.divider()
-            st.subheader("Delete Tire")
-            if "tire_number" in df.columns:
-                del_sel = st.selectbox("Select tire to delete", df["tire_number"].tolist(), key="del_tire_sel")
-                if st.button("Delete Selected Tire", type="secondary"):
-                    st.session_state["confirm_delete_tire"] = del_sel
-                if st.session_state.get("confirm_delete_tire") == del_sel:
-                    st.warning(f"Are you sure you want to delete tire **{del_sel}**? This cannot be undone.")
-                    c_yes, c_no = st.columns(2)
-                    with c_yes:
-                        if st.button("✅ Yes, Delete", type="primary", key="confirm_del_tire_yes"):
-                            row_idx = df[df["tire_number"] == del_sel].index[0] + 2
-                            delete_row("tires", row_idx)
-                            reg_df = read_sheet("tire_reg")
-                            if not reg_df.empty and "tire_number" in reg_df.columns:
-                                reg_matches = reg_df[reg_df["tire_number"] == del_sel]
-                                if not reg_matches.empty:
-                                    for ri in sorted(reg_matches.index.tolist(), reverse=True):
-                                        delete_row("tire_reg", ri + 2)
-                            st.session_state.pop("confirm_delete_tire", None)
-                            st.success(f"Tire '{del_sel}' deleted!")
-                            st.rerun()
-                    with c_no:
-                        if st.button("❌ Cancel", key="confirm_del_tire_no"):
-                            st.session_state.pop("confirm_delete_tire", None)
-                            st.rerun()
+            # --- Delete Tire (admin only) ---
+            if can_delete():
+                st.divider()
+                st.subheader("Delete Tire")
+                if "tire_number" in df.columns:
+                    del_sel = st.selectbox("Select tire to delete", df["tire_number"].tolist(), key="del_tire_sel")
+                    if st.button("Delete Selected Tire", type="secondary"):
+                        st.session_state["confirm_delete_tire"] = del_sel
+                    if st.session_state.get("confirm_delete_tire") == del_sel:
+                        st.warning(f"Are you sure you want to delete tire **{del_sel}**? This cannot be undone.")
+                        c_yes, c_no = st.columns(2)
+                        with c_yes:
+                            if st.button("\u2705 Yes, Delete", type="primary", key="confirm_del_tire_yes"):
+                                row_idx = df[df["tire_number"] == del_sel].index[0] + 2
+                                delete_row("tires", row_idx)
+                                reg_df = read_sheet("tire_reg")
+                                if not reg_df.empty and "tire_number" in reg_df.columns:
+                                    reg_matches = reg_df[reg_df["tire_number"] == del_sel]
+                                    if not reg_matches.empty:
+                                        for ri in sorted(reg_matches.index.tolist(), reverse=True):
+                                            delete_row("tire_reg", ri + 2)
+                                st.session_state.pop("confirm_delete_tire", None)
+                                st.success(f"Tire '{del_sel}' deleted!")
+                                st.rerun()
+                        with c_no:
+                            if st.button("\u274c Cancel", key="confirm_del_tire_no"):
+                                st.session_state.pop("confirm_delete_tire", None)
+                                st.rerun()
         else:
             st.info("No tires in inventory. Add your first tire below.")
 
     # ==============================================
-    # TAB 2 -- Registered Tires
+    # TAB 2 -- Registered Tires (always visible)
     # ==============================================
-    with tab2:
+    tab_idx += 1
+    with tabs[tab_idx]:
         st.subheader("Registered Tires")
         st.caption("Track which tires are registered for Practice, Delaware, or Series. Add, view, and remove registrations below.")
         reg_df = read_sheet("tire_reg")
@@ -325,95 +339,98 @@ def render():
             _reg_tab("Series", "\U0001f3c6", reg_df, tire_numbers, "ser", tire_df)
 
     # ==============================================
-    # TAB 3 -- Add New Tire
+    # TAB 3 -- Add New Tire (only if can_edit)
     # ==============================================
-    with tab3:
-        chassis_list = get_chassis_list()
-        if "scanned_tire_number" not in st.session_state:
-            st.session_state["scanned_tire_number"] = ""
-        # --- Barcode Scanner using camera ---
-        with st.expander("\U0001f4f7 Scan Barcode", expanded=False):
-            st.caption("Take a photo of the barcode on the tire. The app will read the number automatically.")
-            camera_img = st.camera_input("Point camera at barcode", key="tire_barcode_cam")
-            if camera_img is not None:
-                try:
-                    img = Image.open(camera_img)
-                    decoded = pyzbar_decode(img)
-                    if decoded:
-                        barcode_val = decoded[0].data.decode("utf-8")
-                        st.session_state["scanned_tire_number"] = barcode_val
-                        st.success(f"Scanned: **{barcode_val}** -- pre-filled below")
-                    else:
-                        st.warning("No barcode detected. Try again with better lighting or hold the barcode closer.")
-                except Exception as e:
-                    st.error(f"Scanner error: {e}")
-        if st.session_state["scanned_tire_number"]:
-            st.success(f"Scanned: **{st.session_state['scanned_tire_number']}** -- pre-filled below")
+    if can_edit():
+        tab_idx += 1
+        with tabs[tab_idx]:
+            chassis_list = get_chassis_list()
+            if "scanned_tire_number" not in st.session_state:
+                st.session_state["scanned_tire_number"] = ""
+            # --- Barcode Scanner using camera ---
+            with st.expander("\U0001f4f7 Scan Barcode", expanded=False):
+                st.caption("Take a photo of the barcode on the tire. The app will read the number automatically.")
+                camera_img = st.camera_input("Point camera at barcode", key="tire_barcode_cam")
+                if camera_img is not None:
+                    try:
+                        img = Image.open(camera_img)
+                        decoded = pyzbar_decode(img)
+                        if decoded:
+                            barcode_val = decoded[0].data.decode("utf-8")
+                            st.session_state["scanned_tire_number"] = barcode_val
+                            st.success(f"Scanned: **{barcode_val}** -- pre-filled below")
+                        else:
+                            st.warning("No barcode detected. Try again with better lighting or hold the barcode closer.")
+                    except Exception as e:
+                        st.error(f"Scanner error: {e}")
+            if st.session_state["scanned_tire_number"]:
+                st.success(f"Scanned: **{st.session_state['scanned_tire_number']}** -- pre-filled below")
 
-        with st.form("add_tire", clear_on_submit=True):
-            st.subheader("New Tire Entry")
-            c1, c2 = st.columns(2)
-            with c1:
-                tire_number = st.text_input(
-                    "Tire Number / Serial *",
-                    value=st.session_state.get("scanned_tire_number", "")
-                )
-                brand = st.text_input("Brand (e.g. Hoosier)")
-                compound = st.text_input("Compound (e.g. LM20, LM40, D800)")
-                mould_mark = st.text_input("Mould Mark")
-                finish_size = st.text_input("Finish Size")
-            with c2:
-                position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"])
-                status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"])
-                assigned_chassis = st.selectbox("Assigned Chassis", [""] + chassis_list)
-                date_purchased = st.date_input("Date Purchased")
-            st.markdown("---")
-            c3, c4 = st.columns(2)
-            with c3:
-                durometer = st.text_input("Durometer Reading (Shore A)")
-                circumference = st.text_input("Circumference / Rollout")
-            with c4:
-                laps_run = st.number_input("Laps Run", min_value=0, value=0)
-                races_run = st.number_input("Races Run", min_value=0, value=0)
-            notes = st.text_area("Notes (heat cycles, shaving, etc.)")
-            if st.form_submit_button("Save Tire", type="primary"):
-                if not tire_number:
-                    st.error("Tire number is required.")
-                else:
-                    append_row("tires", {
-                        "tire_number": tire_number,
-                        "brand": brand,
-                        "compound": compound,
-                        "mould_mark": mould_mark,
-                        "finish_size": finish_size,
-                        "position": position,
-                        "status": status,
-                        "assigned_chassis": assigned_chassis,
-                        "date_purchased": str(date_purchased),
-                        "durometer": durometer,
-                        "circumference": circumference,
-                        "laps_run": laps_run,
-                        "races_run": races_run,
-                        "notes": notes,
-                        "created": timestamp_now(),
-                    })
-                    # Auto-register for Practice, Delaware, or Series
-                    if status in ["Practice", "Delaware", "Series"]:
-                        time.sleep(2)
-                        try:
-                            append_row("tire_reg", {
-                                "tire_number": tire_number,
-                                "category": status,
-                                "track_or_series": status,
-                                "mould_mark": mould_mark,
-                                "finish_size": finish_size,
-                                "notes": notes,
-                                "registered_date": timestamp_now(),
-                            })
-                            st.success(f"Tire '{tire_number}' added and registered for {status}!")
-                        except Exception as e:
-                            st.warning(f"Tire saved but auto-registration failed: {e}")
+            with st.form("add_tire", clear_on_submit=True):
+                st.subheader("New Tire Entry")
+                c1, c2 = st.columns(2)
+                with c1:
+                    tire_number = st.text_input(
+                        "Tire Number / Serial *",
+                        value=st.session_state.get("scanned_tire_number", "")
+                    )
+                    brand = st.text_input("Brand (e.g. Hoosier)")
+                    compound = st.text_input("Compound (e.g. LM20, LM40, D800)")
+                    mould_mark = st.text_input("Mould Mark")
+                    finish_size = st.text_input("Finish Size")
+                with c2:
+                    position = st.selectbox("Position", ["LF", "RF", "LR", "RR", "Spare"])
+                    status = st.selectbox("Status", ["New", "Practice", "Delaware", "Series", "Used", "Scuffed", "Scrapped"])
+                    assigned_chassis = st.selectbox("Assigned Chassis", [""] + chassis_list)
+                    date_purchased = st.date_input("Date Purchased")
+                st.markdown("---")
+                c3, c4 = st.columns(2)
+                with c3:
+                    durometer = st.text_input("Durometer Reading (Shore A)")
+                    circumference = st.text_input("Circumference / Rollout")
+                with c4:
+                    laps_run = st.number_input("Laps Run", min_value=0, value=0)
+                    races_run = st.number_input("Races Run", min_value=0, value=0)
+                notes = st.text_area("Notes (heat cycles, shaving, etc.)")
+                if st.form_submit_button("Save Tire", type="primary"):
+                    if not tire_number:
+                        st.error("Tire number is required.")
                     else:
-                        st.success(f"Tire '{tire_number}' added!")
-                    st.session_state["scanned_tire_number"] = ""
-                    st.rerun()
+                        append_row("tires", {
+                            "tire_number": tire_number,
+                            "brand": brand,
+                            "compound": compound,
+                            "mould_mark": mould_mark,
+                            "finish_size": finish_size,
+                            "position": position,
+                            "status": status,
+                            "assigned_chassis": assigned_chassis,
+                            "date_purchased": str(date_purchased),
+                            "durometer": durometer,
+                            "circumference": circumference,
+                            "laps_run": laps_run,
+                            "races_run": races_run,
+                            "notes": notes,
+                            "created": timestamp_now(),
+                        })
+                        # Auto-register for Practice, Delaware, or Series
+                        if status in ["Practice", "Delaware", "Series"]:
+                            import time
+                            time.sleep(2)
+                            try:
+                                append_row("tire_reg", {
+                                    "tire_number": tire_number,
+                                    "category": status,
+                                    "track_or_series": status,
+                                    "mould_mark": mould_mark,
+                                    "finish_size": finish_size,
+                                    "notes": notes,
+                                    "registered_date": timestamp_now(),
+                                })
+                                st.success(f"Tire '{tire_number}' added and registered for {status}!")
+                            except Exception as e:
+                                st.warning(f"Tire saved but auto-registration failed: {e}")
+                        else:
+                            st.success(f"Tire '{tire_number}' added!")
+                        st.session_state["scanned_tire_number"] = ""
+                        st.rerun()

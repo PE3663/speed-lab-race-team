@@ -3,6 +3,7 @@ from utils.gsheet_db import (
     read_sheet, append_row, delete_row, timestamp_now,
     get_chassis_list, get_worksheet, update_row, _col_letter,
 )
+from utils.auth import can_edit, can_delete
 
 CORNERS = ["LF", "RF", "LR", "RR"]
 
@@ -392,6 +393,7 @@ def _setup_form(data, chassis_list, form_key):
     }
 
 
+
 def render():
     st.header("\U0001f527 Setup Book")
     chassis_list = get_chassis_list()
@@ -401,14 +403,18 @@ def render():
 
     _ensure_headers()
 
-    tab_view, tab_edit, tab_compare, tab_delete = st.tabs(
-        ["View Setups", "Add / Edit Setup", "Compare Setups", "Delete Setup"]
-    )
+    tab_labels = ["View Setups", "Compare Setups"]
+    if can_edit():
+        tab_labels.append("Add / Edit Setup")
+    if can_delete():
+        tab_labels.append("Delete Setup")
+    tabs = st.tabs(tab_labels)
+    tab_idx = 0
 
     # ========================
-    # TAB 1 -- View Setups
+    # TAB 1 -- View Setups (always visible)
     # ========================
-    with tab_view:
+    with tabs[tab_idx]:
         df = read_sheet("setups")
         if not df.empty:
             filt = st.selectbox("Filter by Chassis", ["All"] + chassis_list, key="view_filt")
@@ -425,40 +431,13 @@ def render():
             else:
                 st.info("No setups match this filter.")
         else:
-            st.info("No setups saved yet. Add one in the next tab.")
+            st.info("No setups saved yet. Add one in the Add / Edit Setup tab.")
 
     # ========================
-    # TAB 2 -- Add / Edit
+    # TAB 2 -- Compare Setups (always visible)
     # ========================
-    with tab_edit:
-        df = read_sheet("setups")
-        existing_names = df["setup_name"].tolist() if not df.empty and "setup_name" in df.columns else []
-        mode = st.radio("Mode", ["Add New Setup", "Edit Existing"], horizontal=True, key="setup_mode")
-
-        if mode == "Edit Existing" and existing_names:
-            edit_name = st.selectbox("Select setup to edit", existing_names, key="edit_setup_select")
-            _, data = _find_setup(edit_name)
-            if not data:
-                data = {}
-        elif mode == "Edit Existing":
-            st.info("No setups to edit. Add one first.")
-            return
-        else:
-            data = {}
-
-        submitted, row = _setup_form(data, chassis_list, "setup_form")
-        if submitted:
-            if not row["setup_name"]:
-                st.error("Setup name is required.")
-            else:
-                _upsert_setup(row["setup_name"], row)
-                st.success(f"Setup '{row['setup_name']}' saved!")
-                st.rerun()
-
-    # ========================
-    # TAB 3 -- Compare Setups
-    # ========================
-    with tab_compare:
+    tab_idx += 1
+    with tabs[tab_idx]:
         df = read_sheet("setups")
         if not df.empty and "setup_name" in df.columns:
             all_names = df["setup_name"].tolist()
@@ -508,27 +487,59 @@ def render():
             st.info("No setups to compare yet.")
 
     # ========================
-    # TAB 4 -- Delete Setup
+    # TAB 3 -- Add / Edit Setup (only if can_edit)
     # ========================
-    with tab_delete:
-        df = read_sheet("setups")
-        if not df.empty and "setup_name" in df.columns:
-            del_name = st.selectbox("Select setup to delete", df["setup_name"].tolist(), key="del_setup_select")
-            if st.button("🗑 Delete Selected Setup", type="secondary"):
-                st.session_state["confirm_delete_setup"] = del_name
-            if st.session_state.get("confirm_delete_setup") == del_name:
-                st.warning(f"Are you sure you want to delete **{del_name}**? This cannot be undone.")
-                c_yes, c_no = st.columns(2)
-                with c_yes:
-                    if st.button("✅ Yes, Delete", type="primary", key="confirm_del_setup_yes"):
-                        row_idx = df[df["setup_name"] == del_name].index[0] + 2
-                        delete_row("setups", row_idx)
-                        st.session_state.pop("confirm_delete_setup", None)
-                        st.success(f"Deleted {del_name}")
-                        st.rerun()
-                with c_no:
-                    if st.button("❌ Cancel", key="confirm_del_setup_no"):
-                        st.session_state.pop("confirm_delete_setup", None)
-                        st.rerun()
-        else:
-            st.info("No setups to delete.")
+    if can_edit():
+        tab_idx += 1
+        with tabs[tab_idx]:
+            df = read_sheet("setups")
+            existing_names = df["setup_name"].tolist() if not df.empty and "setup_name" in df.columns else []
+            mode = st.radio("Mode", ["Add New Setup", "Edit Existing"], horizontal=True, key="setup_mode")
+
+            if mode == "Edit Existing" and existing_names:
+                edit_name = st.selectbox("Select setup to edit", existing_names, key="edit_setup_select")
+                _, data = _find_setup(edit_name)
+                if not data:
+                    data = {}
+            elif mode == "Edit Existing":
+                st.info("No setups to edit. Add one first.")
+                st.stop()
+            else:
+                data = {}
+
+            submitted, row = _setup_form(data, chassis_list, "setup_form")
+            if submitted:
+                if not row["setup_name"]:
+                    st.error("Setup name is required.")
+                else:
+                    _upsert_setup(row["setup_name"], row)
+                    st.success(f"Setup '{row['setup_name']}' saved!")
+                    st.rerun()
+
+    # ========================
+    # TAB 4 -- Delete Setup (only if can_delete)
+    # ========================
+    if can_delete():
+        tab_idx += 1
+        with tabs[tab_idx]:
+            df = read_sheet("setups")
+            if not df.empty and "setup_name" in df.columns:
+                del_name = st.selectbox("Select setup to delete", df["setup_name"].tolist(), key="del_setup_select")
+                if st.button("\U0001f5d1 Delete Selected Setup", type="secondary"):
+                    st.session_state["confirm_delete_setup"] = del_name
+                if st.session_state.get("confirm_delete_setup") == del_name:
+                    st.warning(f"Are you sure you want to delete **{del_name}**? This cannot be undone.")
+                    c_yes, c_no = st.columns(2)
+                    with c_yes:
+                        if st.button("\u2705 Yes, Delete", type="primary", key="confirm_del_setup_yes"):
+                            row_idx = df[df["setup_name"] == del_name].index[0] + 2
+                            delete_row("setups", row_idx)
+                            st.session_state.pop("confirm_delete_setup", None)
+                            st.success(f"Deleted {del_name}")
+                            st.rerun()
+                    with c_no:
+                        if st.button("\u274c Cancel", key="confirm_del_setup_no"):
+                            st.session_state.pop("confirm_delete_setup", None)
+                            st.rerun()
+            else:
+                st.info("No setups to delete.")

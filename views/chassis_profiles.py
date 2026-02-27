@@ -3,6 +3,7 @@ from utils.gsheet_db import (
     read_sheet, append_row, delete_row, timestamp_now,
     update_row_partial, get_worksheet,
 )
+from utils.auth import can_edit, can_delete
 
 # -- All column headers the chassis sheet needs --
 ALL_HEADERS = [
@@ -209,12 +210,17 @@ def render():
     st.header("\U0001f697 Chassis Profiles")
     _ensure_headers()
 
-    tab_view, tab_edit, tab_delete = st.tabs(["View Chassis", "Add / Edit Chassis", "Delete Chassis"])
+    tab_labels = ["View Chassis"]
+    if can_edit():
+        tab_labels.append("Add / Edit Chassis")
+    if can_delete():
+        tab_labels.append("Delete Chassis")
+    tabs = st.tabs(tab_labels)
 
     # ========================
     # TAB 1 -- View Chassis
     # ========================
-    with tab_view:
+    with tabs[0]:
         df = read_sheet("chassis")
         if not df.empty:
             names = df["chassis_name"].tolist()
@@ -230,186 +236,190 @@ def render():
     # ========================
     # TAB 2 -- Add / Edit
     # ========================
-    with tab_edit:
-        df = read_sheet("chassis")
-        existing_names = df["chassis_name"].tolist() if not df.empty else []
-        mode = st.radio("Mode", ["Add New Chassis", "Edit Existing"], horizontal=True, key="chassis_mode")
+    if can_edit():
+        tab_idx = 1
+        with tabs[tab_idx]:
+            df = read_sheet("chassis")
+            existing_names = df["chassis_name"].tolist() if not df.empty else []
+            mode = st.radio("Mode", ["Add New Chassis", "Edit Existing"], horizontal=True, key="chassis_mode")
 
-        if mode == "Edit Existing" and existing_names:
-            edit_name = st.selectbox("Select chassis to edit", existing_names, key="edit_chassis_select")
-            _, data = _find_chassis(edit_name)
-            if not data:
+            if mode == "Edit Existing" and existing_names:
+                edit_name = st.selectbox("Select chassis to edit", existing_names, key="edit_chassis_select")
+                _, data = _find_chassis(edit_name)
+                if not data:
+                    data = {}
+            elif mode == "Edit Existing":
+                st.info("No chassis to edit. Add one first.")
+                st.stop()
+            else:
                 data = {}
-        elif mode == "Edit Existing":
-            st.info("No chassis to edit. Add one first.")
-            return
-        else:
-            data = {}
 
-        with st.form("chassis_form", clear_on_submit=False):
-            st.subheader("Basic Info")
-            bc1, bc2 = st.columns(2)
-            with bc1:
-                name = st.text_input("Chassis Name *", value=_v(data, 'chassis_name'), key="cf_name")
-                car_number = st.text_input("Car Number", value=_v(data, 'car_number'), key="cf_number")
-            with bc2:
-                car_class = st.selectbox("Class", ["Pro Late Model", "Super Stock", "Bone Stock", "Mini Stock", "Other"],
-                    index=["Pro Late Model","Super Stock","Bone Stock","Mini Stock","Other"].index(_v(data,'car_class','Pro Late Model')),
-                    key="cf_class")
-                year = st.text_input("Year / Make", value=_v(data, 'year_make'), key="cf_year")
-
-            st.divider()
-            st.subheader("\u2696\ufe0f Corner Weights (lbs)")
-            cw1, cw2, cw3, cw4 = st.columns(4)
-            with cw1:
-                wlf = st.text_input("LF Weight", value=_v(data, 'weight_lf'), key="cf_wlf")
-            with cw2:
-                wrf = st.text_input("RF Weight", value=_v(data, 'weight_rf'), key="cf_wrf")
-            with cw3:
-                wlr = st.text_input("LR Weight", value=_v(data, 'weight_lr'), key="cf_wlr")
-            with cw4:
-                wrr = st.text_input("RR Weight", value=_v(data, 'weight_rr'), key="cf_wrr")
-
-            st.divider()
-            st.subheader("\U0001f4cf Ride Heights")
-            rh1, rh2, rh3, rh4 = st.columns(4)
-            with rh1:
-                rh_lf = st.text_input("LF Ride Height", value=_v(data, 'ride_height_lf'), key="cf_rhlf")
-            with rh2:
-                rh_rf = st.text_input("RF Ride Height", value=_v(data, 'ride_height_rf'), key="cf_rhrf")
-            with rh3:
-                rh_lr = st.text_input("LR Ride Height", value=_v(data, 'ride_height_lr'), key="cf_rhlr")
-            with rh4:
-                rh_rr = st.text_input("RR Ride Height", value=_v(data, 'ride_height_rr'), key="cf_rhrr")
-
-            st.divider()
-            st.subheader("\U0001f9f2 Springs & Shocks")
-            st.markdown("**Springs (lbs)**")
-            sp1, sp2, sp3, sp4 = st.columns(4)
-            with sp1:
-                s_lf = st.text_input("LF Spring", value=_v(data, 'spring_lf'), key="cf_slf")
-            with sp2:
-                s_rf = st.text_input("RF Spring", value=_v(data, 'spring_rf'), key="cf_srf")
-            with sp3:
-                s_lr = st.text_input("LR Spring", value=_v(data, 'spring_lr'), key="cf_slr")
-            with sp4:
-                s_rr = st.text_input("RR Spring", value=_v(data, 'spring_rr'), key="cf_srr")
-            st.markdown("**Shocks**")
-            sh1, sh2, sh3, sh4 = st.columns(4)
-            with sh1:
-                sk_lf = st.text_input("LF Shock", value=_v(data, 'shock_lf'), key="cf_sklf")
-            with sh2:
-                sk_rf = st.text_input("RF Shock", value=_v(data, 'shock_rf'), key="cf_skrf")
-            with sh3:
-                sk_lr = st.text_input("LR Shock", value=_v(data, 'shock_lr'), key="cf_sklr")
-            with sh4:
-                sk_rr = st.text_input("RR Shock", value=_v(data, 'shock_rr'), key="cf_skrr")
-
-            st.divider()
-            st.subheader("\U0001f4d0 Suspension Geometry")
-            st.markdown("**Camber**")
-            cam1, cam2, cam3, cam4 = st.columns(4)
-            with cam1:
-                cam_lf = st.text_input("LF Camber", value=_v(data, 'camber_lf'), key="cf_camlf")
-            with cam2:
-                cam_rf = st.text_input("RF Camber", value=_v(data, 'camber_rf'), key="cf_camrf")
-            with cam3:
-                cam_lr = st.text_input("LR Camber", value=_v(data, 'camber_lr'), key="cf_camlr")
-            with cam4:
-                cam_rr = st.text_input("RR Camber", value=_v(data, 'camber_rr'), key="cf_camrr")
-            st.markdown("**Caster**")
-            cas1, cas2 = st.columns(2)
-            with cas1:
-                cas_lf = st.text_input("LF Caster", value=_v(data, 'caster_lf'), key="cf_caslf")
-            with cas2:
-                cas_rf = st.text_input("RF Caster", value=_v(data, 'caster_rf'), key="cf_casrf")
-            st.markdown("**Toe**")
-            toe1, toe2 = st.columns(2)
-            with toe1:
-                toe_f = st.text_input("Front Toe", value=_v(data, 'toe_front'), key="cf_toef")
-            with toe2:
-                toe_r = st.text_input("Rear Toe", value=_v(data, 'toe_rear'), key="cf_toer")
-
-            st.divider()
-            st.subheader("\U0001f517 Sway Bars")
-            swb1, swb2 = st.columns(2)
-            with swb1:
-                sw_f = st.text_input("Front Sway Bar", value=_v(data, 'sway_bar_front'), key="cf_swf")
-            with swb2:
-                sw_r = st.text_input("Rear Sway Bar", value=_v(data, 'sway_bar_rear'), key="cf_swr")
-
-            st.divider()
-            st.subheader("\U0001f4d0 Dimensions & Drivetrain")
-            dm1, dm2, dm3 = st.columns(3)
-            with dm1:
-                wb = st.text_input("Wheelbase", value=_v(data, 'wheelbase'), key="cf_wb")
-            with dm2:
-                tw_f = st.text_input("Front Track Width", value=_v(data, 'track_width_front'), key="cf_twf")
-            with dm3:
-                tw_r = st.text_input("Rear Track Width", value=_v(data, 'track_width_rear'), key="cf_twr")
-            dt1, dt2 = st.columns(2)
-            with dt1:
-                gr = st.text_input("Gear Ratio", value=_v(data, 'gear_ratio'), key="cf_gr")
-            with dt2:
-                pa = st.text_input("Pinion Angle", value=_v(data, 'pinion_angle'), key="cf_pa")
-
-            st.divider()
-            notes = st.text_area("Notes", value=_v(data, 'notes'), key="cf_notes")
-
-            if st.form_submit_button("\U0001f4be Save Chassis", type="primary"):
-                if not name:
-                    st.error("Chassis name is required.")
-                else:
-                    save = {
-                        "chassis_name": name,
-                        "car_number": car_number,
-                        "car_class": car_class,
-                        "year_make": year,
-                        "notes": notes,
-                        "weight_lf": wlf, "weight_rf": wrf,
-                        "weight_lr": wlr, "weight_rr": wrr,
-                        "ride_height_lf": rh_lf, "ride_height_rf": rh_rf,
-                        "ride_height_lr": rh_lr, "ride_height_rr": rh_rr,
-                        "spring_lf": s_lf, "spring_rf": s_rf,
-                        "spring_lr": s_lr, "spring_rr": s_rr,
-                        "shock_lf": sk_lf, "shock_rf": sk_rf,
-                        "shock_lr": sk_lr, "shock_rr": sk_rr,
-                        "camber_lf": cam_lf, "camber_rf": cam_rf,
-                        "camber_lr": cam_lr, "camber_rr": cam_rr,
-                        "caster_lf": cas_lf, "caster_rf": cas_rf,
-                        "toe_front": toe_f, "toe_rear": toe_r,
-                        "sway_bar_front": sw_f, "sway_bar_rear": sw_r,
-                        "wheelbase": wb,
-                        "track_width_front": tw_f, "track_width_rear": tw_r,
-                        "gear_ratio": gr, "pinion_angle": pa,
-                        "created": timestamp_now(),
-                    }
-                    _upsert_chassis(name, save)
-                    st.success(f"Chassis '{name}' saved!")
-                    st.rerun()
-
+            with st.form("chassis_form", clear_on_submit=False):
+                st.subheader("Basic Info")
+                bc1, bc2 = st.columns(2)
+                with bc1:
+                    name = st.text_input("Chassis Name *", value=_v(data, 'chassis_name'), key="cf_name")
+                    car_number = st.text_input("Car Number", value=_v(data, 'car_number'), key="cf_number")
+                with bc2:
+                    car_class = st.selectbox("Class", ["Pro Late Model", "Super Stock", "Bone Stock", "Mini Stock", "Other"],
+                        index=["Pro Late Model","Super Stock","Bone Stock","Mini Stock","Other"].index(_v(data,'car_class','Pro Late Model')),
+                        key="cf_class")
+                    year = st.text_input("Year / Make", value=_v(data, 'year_make'), key="cf_year")
+    
+                st.divider()
+                st.subheader("\u2696\ufe0f Corner Weights (lbs)")
+                cw1, cw2, cw3, cw4 = st.columns(4)
+                with cw1:
+                    wlf = st.text_input("LF Weight", value=_v(data, 'weight_lf'), key="cf_wlf")
+                with cw2:
+                    wrf = st.text_input("RF Weight", value=_v(data, 'weight_rf'), key="cf_wrf")
+                with cw3:
+                    wlr = st.text_input("LR Weight", value=_v(data, 'weight_lr'), key="cf_wlr")
+                with cw4:
+                    wrr = st.text_input("RR Weight", value=_v(data, 'weight_rr'), key="cf_wrr")
+    
+                st.divider()
+                st.subheader("\U0001f4cf Ride Heights")
+                rh1, rh2, rh3, rh4 = st.columns(4)
+                with rh1:
+                    rh_lf = st.text_input("LF Ride Height", value=_v(data, 'ride_height_lf'), key="cf_rhlf")
+                with rh2:
+                    rh_rf = st.text_input("RF Ride Height", value=_v(data, 'ride_height_rf'), key="cf_rhrf")
+                with rh3:
+                    rh_lr = st.text_input("LR Ride Height", value=_v(data, 'ride_height_lr'), key="cf_rhlr")
+                with rh4:
+                    rh_rr = st.text_input("RR Ride Height", value=_v(data, 'ride_height_rr'), key="cf_rhrr")
+    
+                st.divider()
+                st.subheader("\U0001f9f2 Springs & Shocks")
+                st.markdown("**Springs (lbs)**")
+                sp1, sp2, sp3, sp4 = st.columns(4)
+                with sp1:
+                    s_lf = st.text_input("LF Spring", value=_v(data, 'spring_lf'), key="cf_slf")
+                with sp2:
+                    s_rf = st.text_input("RF Spring", value=_v(data, 'spring_rf'), key="cf_srf")
+                with sp3:
+                    s_lr = st.text_input("LR Spring", value=_v(data, 'spring_lr'), key="cf_slr")
+                with sp4:
+                    s_rr = st.text_input("RR Spring", value=_v(data, 'spring_rr'), key="cf_srr")
+                st.markdown("**Shocks**")
+                sh1, sh2, sh3, sh4 = st.columns(4)
+                with sh1:
+                    sk_lf = st.text_input("LF Shock", value=_v(data, 'shock_lf'), key="cf_sklf")
+                with sh2:
+                    sk_rf = st.text_input("RF Shock", value=_v(data, 'shock_rf'), key="cf_skrf")
+                with sh3:
+                    sk_lr = st.text_input("LR Shock", value=_v(data, 'shock_lr'), key="cf_sklr")
+                with sh4:
+                    sk_rr = st.text_input("RR Shock", value=_v(data, 'shock_rr'), key="cf_skrr")
+    
+                st.divider()
+                st.subheader("\U0001f4d0 Suspension Geometry")
+                st.markdown("**Camber**")
+                cam1, cam2, cam3, cam4 = st.columns(4)
+                with cam1:
+                    cam_lf = st.text_input("LF Camber", value=_v(data, 'camber_lf'), key="cf_camlf")
+                with cam2:
+                    cam_rf = st.text_input("RF Camber", value=_v(data, 'camber_rf'), key="cf_camrf")
+                with cam3:
+                    cam_lr = st.text_input("LR Camber", value=_v(data, 'camber_lr'), key="cf_camlr")
+                with cam4:
+                    cam_rr = st.text_input("RR Camber", value=_v(data, 'camber_rr'), key="cf_camrr")
+                st.markdown("**Caster**")
+                cas1, cas2 = st.columns(2)
+                with cas1:
+                    cas_lf = st.text_input("LF Caster", value=_v(data, 'caster_lf'), key="cf_caslf")
+                with cas2:
+                    cas_rf = st.text_input("RF Caster", value=_v(data, 'caster_rf'), key="cf_casrf")
+                st.markdown("**Toe**")
+                toe1, toe2 = st.columns(2)
+                with toe1:
+                    toe_f = st.text_input("Front Toe", value=_v(data, 'toe_front'), key="cf_toef")
+                with toe2:
+                    toe_r = st.text_input("Rear Toe", value=_v(data, 'toe_rear'), key="cf_toer")
+    
+                st.divider()
+                st.subheader("\U0001f517 Sway Bars")
+                swb1, swb2 = st.columns(2)
+                with swb1:
+                    sw_f = st.text_input("Front Sway Bar", value=_v(data, 'sway_bar_front'), key="cf_swf")
+                with swb2:
+                    sw_r = st.text_input("Rear Sway Bar", value=_v(data, 'sway_bar_rear'), key="cf_swr")
+    
+                st.divider()
+                st.subheader("\U0001f4d0 Dimensions & Drivetrain")
+                dm1, dm2, dm3 = st.columns(3)
+                with dm1:
+                    wb = st.text_input("Wheelbase", value=_v(data, 'wheelbase'), key="cf_wb")
+                with dm2:
+                    tw_f = st.text_input("Front Track Width", value=_v(data, 'track_width_front'), key="cf_twf")
+                with dm3:
+                    tw_r = st.text_input("Rear Track Width", value=_v(data, 'track_width_rear'), key="cf_twr")
+                dt1, dt2 = st.columns(2)
+                with dt1:
+                    gr = st.text_input("Gear Ratio", value=_v(data, 'gear_ratio'), key="cf_gr")
+                with dt2:
+                    pa = st.text_input("Pinion Angle", value=_v(data, 'pinion_angle'), key="cf_pa")
+    
+                st.divider()
+                notes = st.text_area("Notes", value=_v(data, 'notes'), key="cf_notes")
+    
+                if st.form_submit_button("\U0001f4be Save Chassis", type="primary"):
+                    if not name:
+                        st.error("Chassis name is required.")
+                    else:
+                        save = {
+                            "chassis_name": name,
+                            "car_number": car_number,
+                            "car_class": car_class,
+                            "year_make": year,
+                            "notes": notes,
+                            "weight_lf": wlf, "weight_rf": wrf,
+                            "weight_lr": wlr, "weight_rr": wrr,
+                            "ride_height_lf": rh_lf, "ride_height_rf": rh_rf,
+                            "ride_height_lr": rh_lr, "ride_height_rr": rh_rr,
+                            "spring_lf": s_lf, "spring_rf": s_rf,
+                            "spring_lr": s_lr, "spring_rr": s_rr,
+                            "shock_lf": sk_lf, "shock_rf": sk_rf,
+                            "shock_lr": sk_lr, "shock_rr": sk_rr,
+                            "camber_lf": cam_lf, "camber_rf": cam_rf,
+                            "camber_lr": cam_lr, "camber_rr": cam_rr,
+                            "caster_lf": cas_lf, "caster_rf": cas_rf,
+                            "toe_front": toe_f, "toe_rear": toe_r,
+                            "sway_bar_front": sw_f, "sway_bar_rear": sw_r,
+                            "wheelbase": wb,
+                            "track_width_front": tw_f, "track_width_rear": tw_r,
+                            "gear_ratio": gr, "pinion_angle": pa,
+                            "created": timestamp_now(),
+                        }
+                        _upsert_chassis(name, save)
+                        st.success(f"Chassis '{name}' saved!")
+                        st.rerun()
+    
     # ========================
     # TAB 3 -- Delete Chassis
     # ========================
-    with tab_delete:
-        df = read_sheet("chassis")
-        if not df.empty:
-            del_name = st.selectbox("Select chassis to delete", df["chassis_name"].tolist(), key="del_chassis_select")
-            if st.button("🗑 Delete Selected Chassis", type="secondary"):
-                st.session_state["confirm_delete_chassis"] = del_name
-            if st.session_state.get("confirm_delete_chassis") == del_name:
-                st.warning(f"Are you sure you want to delete **{del_name}**? This cannot be undone.")
-                c_yes, c_no = st.columns(2)
-                with c_yes:
-                    if st.button("✅ Yes, Delete", type="primary", key="confirm_del_chassis_yes"):
-                        row_idx = df[df["chassis_name"] == del_name].index[0] + 2
-                        delete_row("chassis", row_idx)
-                        st.session_state.pop("confirm_delete_chassis", None)
-                        st.success(f"Deleted {del_name}")
-                        st.rerun()
-                with c_no:
-                    if st.button("❌ Cancel", key="confirm_del_chassis_no"):
-                        st.session_state.pop("confirm_delete_chassis", None)
-                        st.rerun()
-        else:
-            st.info("No chassis profiles to delete.")
+    if can_delete():
+        del_tab_idx = 2 if can_edit() else 1
+        with tabs[del_tab_idx]:
+            df = read_sheet("chassis")
+            if not df.empty:
+                del_name = st.selectbox("Select chassis to delete", df["chassis_name"].tolist(), key="del_chassis_select")
+                if st.button("🗑 Delete Selected Chassis", type="secondary"):
+                    st.session_state["confirm_delete_chassis"] = del_name
+                if st.session_state.get("confirm_delete_chassis") == del_name:
+                    st.warning(f"Are you sure you want to delete **{del_name}**? This cannot be undone.")
+                    c_yes, c_no = st.columns(2)
+                    with c_yes:
+                        if st.button("✅ Yes, Delete", type="primary", key="confirm_del_chassis_yes"):
+                            row_idx = df[df["chassis_name"] == del_name].index[0] + 2
+                            delete_row("chassis", row_idx)
+                            st.session_state.pop("confirm_delete_chassis", None)
+                            st.success(f"Deleted {del_name}")
+                            st.rerun()
+                    with c_no:
+                        if st.button("❌ Cancel", key="confirm_del_chassis_no"):
+                            st.session_state.pop("confirm_delete_chassis", None)
+                            st.rerun()
+            else:
+                st.info("No chassis profiles to delete.")

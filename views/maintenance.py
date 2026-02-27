@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date
 from utils.gsheet_db import read_sheet, append_row, update_row, timestamp_now
+from utils.auth import can_edit, can_delete
 
 
 # --------------- Weekly Checklist Template ---------------
@@ -65,6 +66,7 @@ WEEKLY_CHECKLIST = {
 
 def _render_weekly_checklist():
     """Render the Weekly Pro Late Model Maintenance Checklist tab."""
+    from utils.auth import can_edit
         # Print-friendly CSS
     st.markdown("""
     <style>
@@ -142,35 +144,36 @@ def _render_weekly_checklist():
     # Save checklist
     col_save, col_reset = st.columns(2)
     with col_save:
-        if st.button("Save Checklist", type="primary", use_container_width=True):
-            if done_count == 0:
-                st.warning("No items checked. Check off completed items before saving.")
-            else:
-                record = {
-                    "timestamp": timestamp_now(),
-                    "week_of": str(checklist_date),
-                    "items_checked": done_count,
-                    "items_total": total_items,
-                    "pct_complete": f"{progress * 100:.0f}%",
-                }
-                for category, items in WEEKLY_CHECKLIST.items():
-                    cat_key = category.split(". ", 1)[1] if ". " in category else category
-                    cat_checked = [i for i in items if i in checked_items]
-                    record[cat_key] = f"{len(cat_checked)}/{len(items)}"
-
-                unchecked = [item for _, item in all_items if item not in checked_items]
-                if unchecked:
-                    record["skipped_items"] = "; ".join(unchecked[:10])
+        if can_edit():
+            if st.button("Save Checklist", type="primary", use_container_width=True):
+                if done_count == 0:
+                    st.warning("No items checked. Check off completed items before saving.")
                 else:
-                    record["skipped_items"] = ""
-                record["notes"] = checklist_notes
+                    record = {
+                        "timestamp": timestamp_now(),
+                        "week_of": str(checklist_date),
+                        "items_checked": done_count,
+                        "items_total": total_items,
+                        "pct_complete": f"{progress * 100:.0f}%",
+                    }
+                    for category, items in WEEKLY_CHECKLIST.items():
+                        cat_key = category.split(". ", 1)[1] if ". " in category else category
+                        cat_checked = [i for i in items if i in checked_items]
+                        record[cat_key] = f"{len(cat_checked)}/{len(items)}"
 
-                append_row("weekly_checklist", record)
-                if done_count == total_items:
-                    st.success("All items complete! Checklist saved.")
-                    st.balloons()
-                else:
-                    st.success(f"Checklist saved ({done_count}/{total_items} complete).")
+                    unchecked = [item for _, item in all_items if item not in checked_items]
+                    if unchecked:
+                        record["skipped_items"] = "; ".join(unchecked[:10])
+                    else:
+                        record["skipped_items"] = ""
+                    record["notes"] = checklist_notes
+
+                    append_row("weekly_checklist", record)
+                    if done_count == total_items:
+                        st.success("All items complete! Checklist saved.")
+                        st.balloons()
+                    else:
+                        st.success(f"Checklist saved ({done_count}/{total_items} complete).")
 
     with col_reset:
         if st.button("Clear All", use_container_width=True):
@@ -214,10 +217,15 @@ def render():
 
     df = read_sheet("maintenance")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Active Tasks", "Completed", "New Task", "Weekly Checklist"])
+    tab_labels = ["Active Tasks", "Completed"]
+    if can_edit():
+        tab_labels.append("New Task")
+    tab_labels.append("Weekly Checklist")
+    tabs = st.tabs(tab_labels)
+    tab_idx = 0
 
     # --- Active Tasks ---
-    with tab1:
+    with tabs[tab_idx]:
         if df.empty:
             st.info("No maintenance tasks logged yet.")
         else:
@@ -254,21 +262,23 @@ def render():
                             st.markdown(f"**Details:** {row['description']}")
 
                         bc1, bc2, bc3 = st.columns(3)
-                        with bc1:
-                            if st.button("Mark In Progress", key=f"prog_{i}"):
-                                update_row("maintenance", int(i) + 2, {**row.to_dict(), "status": "In Progress", "updated": timestamp_now()})
-                                st.rerun()
-                        with bc2:
-                            if st.button("Mark Complete", key=f"done_{i}"):
-                                update_row("maintenance", int(i) + 2, {**row.to_dict(), "status": "Completed", "completed_date": str(date.today()), "updated": timestamp_now()})
-                                st.rerun()
-                        with bc3:
-                            if st.button("Mark Critical", key=f"crit_{i}"):
-                                update_row("maintenance", int(i) + 2, {**row.to_dict(), "priority": "Critical", "updated": timestamp_now()})
-                                st.rerun()
+                        if can_edit():
+                            with bc1:
+                                if st.button("Mark In Progress", key=f"prog_{i}"):
+                                    update_row("maintenance", int(i) + 2, {**row.to_dict(), "status": "In Progress", "updated": timestamp_now()})
+                                    st.rerun()
+                            with bc2:
+                                if st.button("Mark Complete", key=f"done_{i}"):
+                                    update_row("maintenance", int(i) + 2, {**row.to_dict(), "status": "Completed", "completed_date": str(date.today()), "updated": timestamp_now()})
+                                    st.rerun()
+                            with bc3:
+                                if st.button("Mark Critical", key=f"crit_{i}"):
+                                    update_row("maintenance", int(i) + 2, {**row.to_dict(), "priority": "Critical", "updated": timestamp_now()})
+                                    st.rerun()
 
     # --- Completed Tasks ---
-    with tab2:
+    tab_idx += 1
+    with tabs[tab_idx]:
         if df.empty or "status" not in df.columns:
             st.info("No completed tasks yet.")
         else:
@@ -280,42 +290,45 @@ def render():
                 display_cols = [c for c in ["task", "system", "priority", "completed_date", "assigned_to", "description"] if c in completed.columns]
                 st.dataframe(completed[display_cols] if display_cols else completed, use_container_width=True, hide_index=True)
 
-    # --- New Task ---
-    with tab3:
-        with st.form("new_maintenance", clear_on_submit=True):
-            st.subheader("Log New Maintenance Task")
-            tc1, tc2 = st.columns(2)
-            with tc1:
-                task = st.text_input("Task Name *", placeholder="e.g., Change rear end oil")
-                system = st.selectbox("System", [
-                    "Engine", "Transmission", "Rear End", "Suspension",
-                    "Brakes", "Steering", "Electrical", "Cooling",
-                    "Fuel System", "Body/Chassis", "Safety Equipment", "Other"
-                ])
-                priority = st.selectbox("Priority", ["Low", "Medium", "High", "Critical"])
-            with tc2:
-                due_date = st.date_input("Due Date", value=date.today())
-                assigned_to = st.text_input("Assigned To")
-                status = st.selectbox("Initial Status", ["Open", "In Progress"])
-            description = st.text_area("Description / Notes", height=120, placeholder="Describe the work needed...")
-            parts_needed = st.text_input("Parts Needed", placeholder="e.g., 2qt gear oil, gasket")
-            estimated_time = st.text_input("Estimated Time", placeholder="e.g., 30 min")
+    # --- New Task (only if can_edit) ---
+    if can_edit():
+        tab_idx += 1
+        with tabs[tab_idx]:
+            with st.form("new_maintenance", clear_on_submit=True):
+                st.subheader("Log New Maintenance Task")
+                tc1, tc2 = st.columns(2)
+                with tc1:
+                    task = st.text_input("Task Name *", placeholder="e.g., Change rear end oil")
+                    system = st.selectbox("System", [
+                        "Engine", "Transmission", "Rear End", "Suspension",
+                        "Brakes", "Steering", "Electrical", "Cooling",
+                        "Fuel System", "Body/Chassis", "Safety Equipment", "Other"
+                    ])
+                    priority = st.selectbox("Priority", ["Low", "Medium", "High", "Critical"])
+                with tc2:
+                    due_date = st.date_input("Due Date", value=date.today())
+                    assigned_to = st.text_input("Assigned To")
+                    status = st.selectbox("Initial Status", ["Open", "In Progress"])
+                description = st.text_area("Description / Notes", height=120, placeholder="Describe the work needed...")
+                parts_needed = st.text_input("Parts Needed", placeholder="e.g., 2qt gear oil, gasket")
+                estimated_time = st.text_input("Estimated Time", placeholder="e.g., 30 min")
 
-            if st.form_submit_button("Add Maintenance Task", type="primary"):
-                if not task:
-                    st.error("Task name is required.")
-                else:
-                    append_row("maintenance", {
-                        "task": task, "system": system, "priority": priority,
-                        "due_date": str(due_date), "assigned_to": assigned_to,
-                        "status": status, "description": description,
-                        "parts_needed": parts_needed, "estimated_time": estimated_time,
-                        "completed_date": "", "created": timestamp_now(),
-                        "updated": timestamp_now(),
-                    })
-                    st.success(f"Maintenance task '{task}' added!")
-                    st.rerun()
+                if st.form_submit_button("Add Maintenance Task", type="primary"):
+                    if not task:
+                        st.error("Task name is required.")
+                    else:
+                        append_row("maintenance", {
+                            "task": task, "system": system, "priority": priority,
+                            "due_date": str(due_date), "assigned_to": assigned_to,
+                            "status": status, "description": description,
+                            "parts_needed": parts_needed, "estimated_time": estimated_time,
+                            "completed_date": "", "created": timestamp_now(),
+                            "updated": timestamp_now(),
+                        })
+                        st.success(f"Maintenance task '{task}' added!")
+                        st.rerun()
 
-    # --- Weekly Checklist ---
-    with tab4:
+    # --- Weekly Checklist (always visible) ---
+    tab_idx += 1
+    with tabs[tab_idx]:
         _render_weekly_checklist()

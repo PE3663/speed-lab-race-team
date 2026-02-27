@@ -3,6 +3,7 @@ from utils.gsheet_db import (
     read_sheet, get_chassis_list, timestamp_now,
     find_race_day, upsert_race_day, ensure_race_day_headers, delete_row,
 )
+from utils.auth import can_edit, can_delete
 
 # -- All column headers the race_day sheet needs --
 ALL_HEADERS = [
@@ -307,20 +308,26 @@ def session_form(prefix, session_label, notes_key, data, date_str, track):
             st.rerun()
 
 
+
 # ========================
 # Main render
 # ========================
 def render():
-    st.header("📋 Race Day Log")
+    st.header("\U0001f4cb Race Day Log")
     chassis_list = get_chassis_list()
     ensure_race_day_headers(ALL_HEADERS)
 
-    tab_log, tab_entry, tab_temp = st.tabs(["View Logs", "Race Day Entry", "Tire Temp"])
+    tab_labels = ["View Logs"]
+    if can_edit():
+        tab_labels.append("Race Day Entry")
+    tab_labels.append("Tire Temp")
+    tabs = st.tabs(tab_labels)
+    tab_idx = 0
 
     # ========================
-    # TAB 1 -- View Logs
+    # TAB 1 -- View Logs (always visible)
     # ========================
-    with tab_log:
+    with tabs[tab_idx]:
         df = read_sheet("race_day")
         if df.empty:
             st.info("No race day logs yet.")
@@ -353,137 +360,141 @@ def render():
             else:
                 st.warning("Could not load details for this race day.")
 
-                # Delete race day
-            st.divider()
-            st.markdown("**Danger Zone**")
-            if st.button("🗑️ Delete This Race Day", type="secondary", key="delete_race_day"):
-                st.session_state["confirm_delete"] = True
-            if st.session_state.get("confirm_delete"):
-                st.warning(f"Are you sure you want to delete {sel_date} — {sel_track}? This cannot be undone.")
-                c_yes, c_no = st.columns(2)
-                with c_yes:
-                    if st.button("✅ Yes, Delete", type="primary", key="confirm_del_yes"):
-                        row_idx, _ = find_race_day(sel_date, sel_track)
-                        if row_idx is not None:
-                            delete_row("race_day", row_idx)
-                        st.session_state.pop("confirm_delete", None)
-                        st.success("Race day deleted!")
-                        st.rerun()
-                with c_no:
-                    if st.button("❌ Cancel", key="confirm_del_no"):
-                        st.session_state.pop("confirm_delete", None)
-                        st.rerun()
+            # Delete race day (admin only)
+            if can_delete():
+                st.divider()
+                st.markdown("**Danger Zone**")
+                if st.button("\U0001f5d1\ufe0f Delete This Race Day", type="secondary", key="delete_race_day"):
+                    st.session_state["confirm_delete"] = True
+                if st.session_state.get("confirm_delete"):
+                    st.warning(f"Are you sure you want to delete {sel_date} \u2014 {sel_track}? This cannot be undone.")
+                    c_yes, c_no = st.columns(2)
+                    with c_yes:
+                        if st.button("\u2705 Yes, Delete", type="primary", key="confirm_del_yes"):
+                            row_idx, _ = find_race_day(sel_date, sel_track)
+                            if row_idx is not None:
+                                delete_row("race_day", row_idx)
+                            st.session_state.pop("confirm_delete", None)
+                            st.success("Race day deleted!")
+                            st.rerun()
+                    with c_no:
+                        if st.button("\u274c Cancel", key="confirm_del_no"):
+                            st.session_state.pop("confirm_delete", None)
+                            st.rerun()
 
     # ========================
-    # TAB 2 -- Race Day Entry
+    # TAB 2 -- Race Day Entry (only if can_edit)
     # ========================
-    with tab_entry:
-        st.subheader("Select Race Day")
-        hc1, hc2 = st.columns(2)
-        with hc1:
-            DEFAULT_TRACKS = ["Sauble Speedway", "Flamboro Speedway", "Delaware Speedway", "Sunset Speedway", "Peterborough Speedway", "Jukasa Motor Speedway"]
-            # Build track list from previous race days + defaults
-            try:
-                all_races = read_sheet("race_day")
-                saved_tracks = all_races["track"].unique().tolist() if not all_races.empty and "track" in all_races.columns else []
-            except Exception:
-                saved_tracks = []
-            track_options = sorted(set(DEFAULT_TRACKS + saved_tracks))
-            track = st.selectbox("Track", track_options + ["Other (type below)"], key="rd_track")
-            if track == "Other (type below)":
-                track = st.text_input("Enter track name", key="rd_track_custom")
-            race_date = st.date_input("Date", key="rd_date")
-        with hc2:
-            chassis = st.selectbox("Chassis", chassis_list if chassis_list else [""], key="rd_chassis")
-        date_str = str(race_date)
-        _, existing = find_race_day(date_str, track)
-        data = existing if existing else {}
-        if data:
-            st.success(f"\u2705 Loaded existing race day: {track} \u2014 {date_str}")
-        else:
-            st.info("\U0001f195 New race day. Fill in sessions below and save as you go.")
+    if can_edit():
+        tab_idx += 1
+        with tabs[tab_idx]:
+            st.subheader("Select Race Day")
+            hc1, hc2 = st.columns(2)
+            with hc1:
+                DEFAULT_TRACKS = ["Sauble Speedway", "Flamboro Speedway", "Delaware Speedway", "Sunset Speedway", "Peterborough Speedway", "Jukasa Motor Speedway"]
+                # Build track list from previous race days + defaults
+                try:
+                    all_races = read_sheet("race_day")
+                    saved_tracks = all_races["track"].unique().tolist() if not all_races.empty and "track" in all_races.columns else []
+                except Exception:
+                    saved_tracks = []
+                track_options = sorted(set(DEFAULT_TRACKS + saved_tracks))
+                track = st.selectbox("Track", track_options + ["Other (type below)"], key="rd_track")
+                if track == "Other (type below)":
+                    track = st.text_input("Enter track name", key="rd_track_custom")
+                race_date = st.date_input("Date", key="rd_date")
+            with hc2:
+                chassis = st.selectbox("Chassis", chassis_list if chassis_list else [""], key="rd_chassis")
+            date_str = str(race_date)
+            _, existing = find_race_day(date_str, track)
+            data = existing if existing else {}
+            if data:
+                st.success(f"\u2705 Loaded existing race day: {track} \u2014 {date_str}")
+            else:
+                st.info("\U0001f195 New race day. Fill in sessions below and save as you go.")
 
-        # Race Day Info form
-        with st.form("form_header", clear_on_submit=False):
-            st.subheader("Race Day Info")
-            ic1, ic2, ic3 = st.columns(3)
-            with ic1:
-                weather = st.text_input("Weather (temp, humidity, wind)",
-                    value=_v(data, "weather"), key="rd_weather")
-            with ic2:
-                track_condition = st.selectbox("Track Condition",
-                    ["Dry", "Damp", "Wet", "Dusty", "Tacky"],
-                    index=["Dry", "Damp", "Wet", "Dusty", "Tacky"].index(_v(data, "track_condition", "Dry")),
-                    key="rd_condition")
-            with ic3:
-                air_temp = st.text_input("Air Temp", value=_v(data, "air_temp"), key="rd_air_temp")
-            if st.form_submit_button("\U0001f4be Save Race Day Info", type="primary"):
-                save = {
-                    "chassis": chassis, "weather": weather,
-                    "track_condition": track_condition, "air_temp": air_temp,
-                    "created": timestamp_now(),
-                }
-                upsert_race_day(date_str, track, save)
-                st.success("Race day info saved!")
-                st.rerun()
+            # Race Day Info form
+            with st.form("form_header", clear_on_submit=False):
+                st.subheader("Race Day Info")
+                ic1, ic2, ic3 = st.columns(3)
+                with ic1:
+                    weather = st.text_input("Weather (temp, humidity, wind)",
+                        value=_v(data, "weather"), key="rd_weather")
+                with ic2:
+                    track_condition = st.selectbox("Track Condition",
+                        ["Dry", "Damp", "Wet", "Dusty", "Tacky"],
+                        index=["Dry", "Damp", "Wet", "Dusty", "Tacky"].index(_v(data, "track_condition", "Dry")),
+                        key="rd_condition")
+                with ic3:
+                    air_temp = st.text_input("Air Temp", value=_v(data, "air_temp"), key="rd_air_temp")
+                if st.form_submit_button("\U0001f4be Save Race Day Info", type="primary"):
+                    save = {
+                        "chassis": chassis, "weather": weather,
+                        "track_condition": track_condition, "air_temp": air_temp,
+                        "created": timestamp_now(),
+                    }
+                    upsert_race_day(date_str, track, save)
+                    st.success("Race day info saved!")
+                    st.rerun()
 
-        st.markdown("---")
-        st.subheader("Session Notes")
-        st.caption("Each session saves independently \u2014 fill in and save as you go throughout the day.")
+            st.markdown("---")
+            st.subheader("Session Notes")
+            st.caption("Each session saves independently \u2014 fill in and save as you go throughout the day.")
 
-        # Practice #1
-        session_form("p1", "Practice #1", "practice", data, date_str, track)
-        st.markdown("---")
-        # Practice #2
-        session_form("p2", "Practice #2", "practice2", data, date_str, track)
-        st.markdown("---")
-        # Qualifying
-        with st.form("form_qual", clear_on_submit=False):
-            qual_notes = st.text_area("Qualifying Notes",
-                value=_v(data, "qualifying"), key="qual_notes_input")
-            if st.form_submit_button("\U0001f4be Save Qualifying", type="primary"):
-                upsert_race_day(date_str, track, {"qualifying": qual_notes, "created": timestamp_now()})
-                st.success("Qualifying saved!")
-                st.rerun()
-        st.markdown("---")
-        # Heat Race
-        session_form("heat", "Heat Race", "heat_race", data, date_str, track)
-        st.markdown("---")
-        # Feature
-        session_form("feat", "Feature", "feature", data, date_str, track)
-        st.markdown("---")
+            # Practice #1
+            session_form("p1", "Practice #1", "practice", data, date_str, track)
+            st.markdown("---")
+            # Practice #2
+            session_form("p2", "Practice #2", "practice2", data, date_str, track)
+            st.markdown("---")
+            # Qualifying
+            with st.form("form_qual", clear_on_submit=False):
+                qual_notes = st.text_area("Qualifying Notes",
+                    value=_v(data, "qualifying"), key="qual_notes_input")
+                if st.form_submit_button("\U0001f4be Save Qualifying", type="primary"):
+                    upsert_race_day(date_str, track, {"qualifying": qual_notes, "created": timestamp_now()})
+                    st.success("Qualifying saved!")
+                    st.rerun()
+            st.markdown("---")
+            # Heat Race
+            session_form("heat", "Heat Race", "heat_race", data, date_str, track)
+            st.markdown("---")
+            # Feature
+            session_form("feat", "Feature", "feature", data, date_str, track)
+            st.markdown("---")
 
-        # Results
-        with st.form("form_results", clear_on_submit=False):
-            st.subheader("Results")
-            rc1, rc2, rc3 = st.columns(3)
-            with rc1:
-                qual_pos = st.text_input("Qualifying Position",
-                    value=_v(data, "qual_position"), key="rd_qual_pos")
-            with rc2:
-                heat_fin = st.text_input("Heat Finish",
-                    value=_v(data, "heat_finish"), key="rd_heat_fin")
-            with rc3:
-                feat_fin = st.text_input("Feature Finish",
-                    value=_v(data, "feature_finish"), key="rd_feat_fin")
-            adjustments = st.text_area("Adjustments Made During Night",
-                value=_v(data, "adjustments"), key="rd_adjustments")
-            notes = st.text_area("General Notes",
-                value=_v(data, "notes"), key="rd_notes")
-            if st.form_submit_button("\U0001f4be Save Results & Notes", type="primary"):
-                save = {
-                    "qual_position": qual_pos, "heat_finish": heat_fin,
-                    "feature_finish": feat_fin, "adjustments": adjustments,
-                    "notes": notes, "created": timestamp_now(),
-                }
-                upsert_race_day(date_str, track, save)
-                st.success("Results & notes saved!")
-                st.rerun()
+            # Results
+            with st.form("form_results", clear_on_submit=False):
+                st.subheader("Results")
+                rc1, rc2, rc3 = st.columns(3)
+                with rc1:
+                    qual_pos = st.text_input("Qualifying Position",
+                        value=_v(data, "qual_position"), key="rd_qual_pos")
+                with rc2:
+                    heat_fin = st.text_input("Heat Finish",
+                        value=_v(data, "heat_finish"), key="rd_heat_fin")
+                with rc3:
+                    feat_fin = st.text_input("Feature Finish",
+                        value=_v(data, "feature_finish"), key="rd_feat_fin")
+                adjustments = st.text_area("Adjustments Made During Night",
+                    value=_v(data, "adjustments"), key="rd_adjustments")
+                notes = st.text_area("General Notes",
+                    value=_v(data, "notes"), key="rd_notes")
+                if st.form_submit_button("\U0001f4be Save Results & Notes", type="primary"):
+                    save = {
+                        "qual_position": qual_pos, "heat_finish": heat_fin,
+                        "feature_finish": feat_fin, "adjustments": adjustments,
+                        "notes": notes, "created": timestamp_now(),
+                    }
+                    upsert_race_day(date_str, track, save)
+                    st.success("Results & notes saved!")
+                    st.rerun()
 
     # ========================
-    # TAB 3 -- Tire Temp Calculator
+    # TAB 3 -- Tire Temp (always visible)
     # ========================
-    with tab_temp:
+    tab_idx += 1
+    with tabs[tab_idx]:
         st.subheader("Tire Temperature Analysis")
         st.caption("Enter tire temps (Inner, Middle, Outer) for each corner. The app will analyze camber based on the temperature spread.")
         corners = ["LF", "RF", "LR", "RR"]

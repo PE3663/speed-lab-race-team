@@ -2,6 +2,7 @@ import gspread
 import streamlit as st
 import pandas as pd
 import time
+import hashlib
 from datetime import datetime
 
 # -- Google Sheets Database Helper --
@@ -17,7 +18,8 @@ SHEETS = {
     "tuning": "tuning_log",
     "tire_reg": "tire_registrations",
     "weekly_checklist": "weekly_checklist",
-        "roll_centres": "roll_centres",
+    "roll_centres": "roll_centres",
+    "users": "users",
 }
 
 
@@ -253,6 +255,88 @@ def upsert_race_day(date_str: str, track: str, data: dict):
         # Find the row we just created
         new_idx, _ = find_race_day(date_str, track)
         return new_idx
+
+
+def _hash_password(password: str) -> str:
+    """Hash a password with SHA-256."""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def get_users() -> pd.DataFrame:
+    """Read all users from the users sheet."""
+    return read_sheet("users")
+
+
+def check_credentials(username: str, password: str):
+    """Check username/password. Returns role string or None."""
+    df = get_users()
+    if df.empty:
+        return None
+    match = df[df["username"].str.lower() == username.lower()]
+    if match.empty:
+        return None
+    row = match.iloc[0]
+    stored_hash = row.get("password_hash", "")
+    if stored_hash == _hash_password(password):
+        return row.get("role", "viewer")
+    return None
+
+
+def add_user(username: str, password: str, role: str, display_name: str = ""):
+    """Add a new user. Password is hashed before storage."""
+    append_row("users", {
+        "username": username,
+        "password_hash": _hash_password(password),
+        "role": role,
+        "display_name": display_name,
+        "created": timestamp_now(),
+    })
+
+
+def update_user_password(username: str, new_password: str):
+    """Update a user's password."""
+    df = get_users()
+    if df.empty:
+        return False
+    match = df[df["username"].str.lower() == username.lower()]
+    if match.empty:
+        return False
+    row_idx = match.index[0] + 2  # 1-based sheet row
+    update_row_partial("users", row_idx, {"password_hash": _hash_password(new_password)})
+    return True
+
+
+def update_user_role(username: str, new_role: str):
+    """Update a user's role."""
+    df = get_users()
+    if df.empty:
+        return False
+    match = df[df["username"].str.lower() == username.lower()]
+    if match.empty:
+        return False
+    row_idx = match.index[0] + 2
+    update_row_partial("users", row_idx, {"role": new_role})
+    return True
+
+
+def delete_user(username: str):
+    """Delete a user."""
+    df = get_users()
+    if df.empty:
+        return False
+    match = df[df["username"].str.lower() == username.lower()]
+    if match.empty:
+        return False
+    row_idx = match.index[0] + 2
+    delete_row("users", row_idx)
+    return True
+
+
+def seed_admin_if_empty():
+    """If no users exist, create the default admin account."""
+    df = get_users()
+    if df.empty or len(df) == 0:
+        add_user("admin", "speedlab2026", "admin", "Admin")
 
 
 def ensure_race_day_headers(all_headers: list):

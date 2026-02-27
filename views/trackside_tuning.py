@@ -3,6 +3,7 @@ import pandas as pd
 from openai import OpenAI
 from utils.gsheet_db import read_sheet, append_row, timestamp_now
 from utils.tuning_knowledge import get_tuning_knowledge
+from utils.auth import can_edit
 
 
 def _get_ai_client():
@@ -249,30 +250,31 @@ def render():
     # ---- Tuning Log ----
     st.markdown("---")
     st.subheader("Tuning Log")
-    with st.form("tuning_log_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            log_date = st.date_input("Date")
-            log_track = st.text_input("Track")
-        with col2:
-            log_session = st.selectbox("Session", ["Practice", "Qualifying", "Heat", "Feature"])
-            log_condition = st.selectbox("Track Condition", ["Dry/Slick", "Tacky", "Heavy", "Wet"])
-        log_symptom = st.text_input("Symptom / Handling Issue")
-        log_change = st.text_area("Change Made")
-        log_result = st.text_area("Result / Notes")
-        submitted = st.form_submit_button("Save Log Entry")
-        if submitted and log_symptom:
-            append_row("TuningLog", {
-                "timestamp": timestamp_now(),
-                "date": str(log_date),
-                "track": log_track,
-                "session": log_session,
-                "condition": log_condition,
-                "symptom": log_symptom,
-                "change": log_change,
-                "result": log_result,
-            })
-            st.success("Log entry saved!")
+    if can_edit():
+        with st.form("tuning_log_form"):
+            col1, col2 = st.columns(2)
+            with col1:
+                log_date = st.date_input("Date")
+                log_track = st.text_input("Track")
+            with col2:
+                log_session = st.selectbox("Session", ["Practice", "Qualifying", "Heat", "Feature"])
+                log_condition = st.selectbox("Track Condition", ["Dry/Slick", "Tacky", "Heavy", "Wet"])
+            log_symptom = st.text_input("Symptom / Handling Issue")
+            log_change = st.text_area("Change Made")
+            log_result = st.text_area("Result / Notes")
+            submitted = st.form_submit_button("Save Log Entry")
+            if submitted and log_symptom:
+                append_row("TuningLog", {
+                    "timestamp": timestamp_now(),
+                    "date": str(log_date),
+                    "track": log_track,
+                    "session": log_session,
+                    "condition": log_condition,
+                    "symptom": log_symptom,
+                    "change": log_change,
+                    "result": log_result,
+                })
+                st.success("Log entry saved!")
 
     # Show recent log entries
     try:
